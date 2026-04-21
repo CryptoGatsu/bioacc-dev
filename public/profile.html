@@ -22,13 +22,27 @@ top:0;
 left:0;
 width:100%;
 padding:15px 25px;
-background:#000;
+background:rgba(0,0,0,0.9);
 border-bottom:1px solid #111;
 display:flex;
 justify-content:space-between;
+align-items:center;
+z-index:10;
+box-sizing:border-box;
 }
 
-.nav a{color:#7CFF3A;text-decoration:none;margin-left:20px;}
+.nav-links{
+display:flex;
+gap:20px;
+align-items:center;
+flex-wrap:wrap;
+}
+
+.nav a{
+color:#7CFF3A;
+text-decoration:none;
+white-space:nowrap;
+}
 
 .container{
 max-width:800px;
@@ -64,11 +78,12 @@ cursor:pointer;
 <body>
 
 <div class="nav">
-<div>profile</div>
-<div>
-<a href="/">home</a>
-<a href="/fund">fund</a>
-</div>
+  <div>bio/acc profile</div>
+  <div class="nav-links">
+    <a href="/">home</a>
+    <a href="/manifesto">manifesto</a>
+    <a href="/fund">fund</a>
+  </div>
 </div>
 
 <div class="container">
