@@ -23,19 +23,28 @@ position:fixed;
 top:0;
 left:0;
 width:100%;
-padding:15px 40px;
-background:#000;
+padding:15px 25px;
+background:rgba(0,0,0,0.9);
 border-bottom:1px solid #111;
 display:flex;
 justify-content:space-between;
 align-items:center;
-z-index:100;
+z-index:10;
+box-sizing:border-box;
+overflow:visible;
 }
 
 .nav a{
 color:#7CFF3A;
 text-decoration:none;
 margin-left:20px;
+}
+
+.nav div:last-child{
+display:flex;
+gap:20px;
+align-items:center;
+flex-wrap:wrap;
 }
 
 .container{

@@ -15,7 +15,7 @@ const nav = document.querySelector(".nav div:last-child")
 
 const btn = document.createElement("span")
 btn.innerText = "profile"
-btn.style.marginLeft = "20px"
+btn.style.marginLeft = "0px"
 btn.style.cursor = "pointer"
 btn.style.color = "#7CFF3A"
 
