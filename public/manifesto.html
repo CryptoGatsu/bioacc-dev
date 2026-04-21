@@ -182,7 +182,7 @@ loadSignatures()
 }
 
 async function loadSignatures(){
-const res=await fetch("https://raw.githubusercontent.com/cryptogatsu/bioacc/main/submissions.json?t="+Date.now())
+const res=await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
 const data=await res.json()
 
 render(data.manifesto || [])

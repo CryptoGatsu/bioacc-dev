@@ -292,7 +292,7 @@ return token ? token.amount / (10 ** (token.decimals || 6)) : 0
 
 async function loadProjects(){
 
-const res=await fetch("https://raw.githubusercontent.com/cryptogatsu/bioacc/main/submissions.json?t="+Date.now())
+const res=await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
 const data=await res.json()
 
 backendData=data
