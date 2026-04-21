@@ -169,6 +169,14 @@ font-size:14px;
 color:#777;
 }
 
+.profile-link{
+color:#7CFF3A;
+cursor:pointer;
+}
+.profile-link:hover{
+text-decoration:underline;
+}
+
 </style>
 
 </head>
@@ -256,6 +264,35 @@ bio/acc is a movement accelerating biotechnology.
 </div>
 
 <script>
+
+  function getDisplayName(w){
+
+if(!backendData || !backendData.profiles) {
+return w.slice(0,4)+"..."+w.slice(-4)
+}
+
+const profile = backendData.profiles[w]
+
+if(profile && profile.username){
+return profile.username
+}
+
+return w.slice(0,4)+"..."+w.slice(-4)
+}
+
+function profileLink(wallet){
+
+const name = getDisplayName(wallet)
+
+return `<span class="profile-link" onclick="goProfile('${wallet}')">${name}</span>`
+
+}
+
+function goProfile(wallet){
+window.location = "/profile?wallet=" + wallet
+}
+
+  
 
 // MARKET CAP
 async function refreshMarketCap(){

@@ -71,6 +71,14 @@ cursor:pointer;
 
 .section{margin-top:40px;}
 
+.profile-link{
+color:#7CFF3A;
+cursor:pointer;
+}
+.profile-link:hover{
+text-decoration:underline;
+}
+
 </style>
 
 </head>
@@ -140,6 +148,33 @@ render()
 
 }
 
+function getDisplayName(w){
+
+if(!backendData || !backendData.profiles) {
+return w.slice(0,4)+"..."+w.slice(-4)
+}
+
+const profile = backendData.profiles[w]
+
+if(profile && profile.username){
+return profile.username
+}
+
+return w.slice(0,4)+"..."+w.slice(-4)
+}
+
+function profileLink(wallet){
+
+const name = getDisplayName(wallet)
+
+return `<span class="profile-link" onclick="goProfile('${wallet}')">${name}</span>`
+
+}
+
+function goProfile(wallet){
+window.location = "/profile?wallet=" + wallet
+}
+
 function render(){
 
 if(!viewingWallet){
@@ -147,9 +182,8 @@ document.getElementById("walletTitle").innerText="no wallet"
 return
 }
 
-const short = viewingWallet.slice(0,4)+"..."+viewingWallet.slice(-4)
-
-document.getElementById("walletTitle").innerText = short
+document.getElementById("walletTitle").innerText =
+getDisplayName(viewingWallet)
 
 const profile = backendData.profiles?.[viewingWallet] || {}
 

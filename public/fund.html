@@ -198,6 +198,10 @@ max-width:500px;
 cursor:pointer;
 color:#7CFF3A;
 float:right;
+
+
+
+
 }
 
 
@@ -303,6 +307,33 @@ function closeProfile(){
 document.getElementById("profileModal").style.display="none"
 }
 
+function getDisplayName(w){
+
+if(!backendData || !backendData.profiles) {
+return w.slice(0,4)+"..."+w.slice(-4)
+}
+
+const profile = backendData.profiles[w]
+
+if(profile && profile.username){
+return profile.username
+}
+
+return w.slice(0,4)+"..."+w.slice(-4)
+}
+
+function profileLink(wallet){
+
+const name = getDisplayName(wallet)
+
+return `<span class="profile-link" onclick="goProfile('${wallet}')">${name}</span>`
+
+}
+
+function goProfile(wallet){
+window.location = "/profile?wallet=" + wallet
+}
+
 
 function toggleConfirm(){
   const box = document.getElementById("confirmBox")
@@ -340,7 +371,7 @@ tokenBalance = await getTokenBalance(wallet)
 voteBank = Math.floor(tokenBalance / TOKENS_PER_VOTE)
 
 document.getElementById("walletStatus").innerText =
-`wallet: ${wallet.slice(0,4)}...${wallet.slice(-4)} | tokens: ${Math.floor(tokenBalance)} | votes: ${voteBank}`
+`wallet: ${getDisplayName(wallet)} | tokens: ${Math.floor(tokenBalance)} | votes: ${voteBank}`
 
 loadProjects()
 }
