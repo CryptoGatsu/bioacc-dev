@@ -291,6 +291,8 @@ float:right;
 
 <!-- ONLY CHANGES ARE COMMENTED WITH: 🔥 FIX -->
 
+<script src="/wallet.js"></script>
+
 <script>
 
 const TOKENS_PER_VOTE = 1000000
@@ -361,19 +363,6 @@ async function signMessage(message){
   const encoded = new TextEncoder().encode(message)
   const signed = await provider.signMessage(encoded, "utf8")
   return { signature: Array.from(signed.signature) }
-}
-
-async function connectWallet(){
-const res=await window.solana.connect()
-wallet=res.publicKey.toString()
-
-tokenBalance = await getTokenBalance(wallet)
-voteBank = Math.floor(tokenBalance / TOKENS_PER_VOTE)
-
-document.getElementById("walletStatus").innerText =
-`wallet: ${getDisplayName(wallet)} | tokens: ${Math.floor(tokenBalance)} | votes: ${voteBank}`
-
-loadProjects()
 }
 
 async function getTokenBalance(wallet){
@@ -578,7 +567,8 @@ function nextPage(){currentPage++;loadProjects()}
 function prevPage(){if(currentPage>0)currentPage--;loadProjects()}
 function goPage(p){currentPage=p;loadProjects()}
 
-loadProjects()
+await autoConnect()
+await loadProjects()
 
 
 

@@ -170,6 +170,8 @@ bio/acc is a decentralized movement accelerating biotechnology.
 
 <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
 
+<script src="/wallet.js"></script>
+
 <script>
 
 let walletAddress=null
@@ -270,6 +272,7 @@ document.getElementById("note").value=""
 loadSignatures()
 }
 
+await autoConnect()
 loadSignatures()
 
 </script>

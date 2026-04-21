@@ -201,12 +201,17 @@ text-decoration:underline;
 
 <img src="heart.png" class="hero-img">
 
+
+
 <!-- 🔥 STATS (ADDED) -->
 <div style="margin-top:30px; border-top:1px solid #111; padding-top:20px;">
 <div>projects: <span id="statProjects">-</span></div>
 <div>votes: <span id="statVotes">-</span></div>
 <div>signers: <span id="statSigners">-</span></div>
 </div>
+
+<button onclick="connectWallet()">connect wallet</button>
+<p id="walletStatus"></p>
 
 </div>
 
@@ -262,6 +267,8 @@ bio/acc is a movement accelerating biotechnology.
 </footer>
 
 </div>
+
+<script src="/wallet.js"></script>
 
 <script>
 
@@ -380,6 +387,7 @@ feed.innerHTML="[error] intelligence network offline"
 }
 
 // INIT
+await autoConnect()
 loadResearch()
 refreshMarketCap()
 loadStats()
