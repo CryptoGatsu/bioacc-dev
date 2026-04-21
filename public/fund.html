@@ -167,6 +167,25 @@ margin:5px;
 </head>
 <link rel="icon" type="image/png" href="/favicon.png">
 
+<div id="profileModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeProfile()">[close]</span>
+
+    <h3 id="profileWallet"></h3>
+
+    <h4>submitted</h4>
+    <div id="profileProjects"></div>
+
+    <h4>voted today</h4>
+    <div id="profileVote"></div>
+
+    <h4>status</h4>
+    <div id="profileBadges"></div>
+  </div>
+</div>
+
+<script src="/profile.js"></script>
+
 <body>
 
 <div class="nav">
@@ -241,6 +260,8 @@ let backendData=null
 
 let currentPage=0
 const perPage=5
+
+
 
 function toggleConfirm(){
   const box = document.getElementById("confirmBox")
@@ -486,6 +507,8 @@ function prevPage(){if(currentPage>0)currentPage--;loadProjects()}
 function goPage(p){currentPage=p;loadProjects()}
 
 loadProjects()
+
+
 
 </script>
 
