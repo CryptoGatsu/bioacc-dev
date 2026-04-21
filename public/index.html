@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+
+<title>bio/acc</title>
+
+<style>
+
+body{
+margin:0;
+background:#000;
+color:#cfcfcf;
+font-family:Courier New, monospace;
+line-height:1.7;
+}
+
+.nav{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+padding:15px 25px;
+background:rgba(0,0,0,0.9);
+border-bottom:1px solid #111;
+display:flex;
+justify-content:space-between;
+align-items:center;
+box-sizing:border-box;
+z-index:10;
+}
+
+.nav a{
+color:#7CFF3A;
+text-decoration:none;
+margin-left:20px;
+}
+
+.nav a.active{
+opacity:0.6;
+pointer-events:none;
+}
+
+.hero{
+text-align:center;
+margin-top:60px;
+}
+
+.hero h1{
+font-size:48px;
+margin-bottom:10px;
+}
+
+.hero p{
+margin-bottom:30px;
+}
+
+.hero-img{
+width:300px;
+max-width:80%;
+display:block;
+margin:0 auto;
+}
+
+.container{
+max-width:900px;
+margin:auto;
+padding:100px 25px 60px;
+}
+
+h1{
+color:white;
+font-weight:normal;
+font-size:36px;
+margin-top:40px;
+}
+
+h2{
+color:white;
+font-weight:normal;
+margin-top:70px;
+}
+
+.green{
+color:#7CFF3A;
+}
+
+.center-image{
+text-align:center;
+margin:40px 0;
+}
+
+.center-image img{
+width:220px;
+}
+
+.contract{
+border-top:1px solid #222;
+border-bottom:1px solid #222;
+padding:20px 0;
+margin:40px 0;
+text-align:center;
+}
+
+.button{
+background:#7CFF3A;
+color:black;
+padding:10px 18px;
+text-decoration:none;
+display:inline-block;
+cursor:pointer;
+}
+
+.researchFeed{
+background:#050505;
+border:1px solid #222;
+padding:20px;
+height:320px;
+overflow-y:auto;
+margin-top:20px;
+font-size:14px;
+scroll-behavior:smooth;
+}
+
+.cursor{
+display:inline-block;
+width:8px;
+background:#7CFF3A;
+margin-left:5px;
+animation:blink 1s infinite;
+}
+
+@keyframes blink{
+0%,100%{opacity:1;}
+50%{opacity:0;}
+}
+
+.new-line{
+animation:fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn{
+from{opacity:0;}
+to{opacity:1;}
+}
+
+.cta{
+margin-top:40px;
+padding:25px;
+border:1px solid #222;
+text-align:center;
+}
+
+.cta + .cta{
+margin-top:20px;
+}
+
+.links a{
+color:#7CFF3A;
+margin-right:20px;
+text-decoration:none;
+}
+
+footer{
+margin-top:120px;
+border-top:1px solid #222;
+padding-top:30px;
+font-size:14px;
+color:#777;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="nav">
+<div>bio/acc</div>
+<div>
+<a href="/">home</a>
+  <a href="/manifesto">manifesto</a>
+  <a href="/fund">fund</a>
+</div>
+</div>
+
+<div class="container">
+
+<div class="hero">
+
+<h1>bio/acc</h1>
+<p class="green">biotech accelerationism</p>
+
+<img src="heart.png" class="hero-img">
+
+<!-- 🔥 STATS (ADDED) -->
+<div style="margin-top:30px; border-top:1px solid #111; padding-top:20px;">
+<div>projects: <span id="statProjects">-</span></div>
+<div>votes: <span id="statVotes">-</span></div>
+<div>signers: <span id="statSigners">-</span></div>
+</div>
+
+</div>
+
+<div class="contract">
+bio/acc contract
+<br><br>
+<b>CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump</b>
+<br><br>
+
+<a class="button" href="https://dexscreener.com/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw">buy</a>
+
+<br><br>
+
+market cap: <span id="marketCap">loading...</span>
+<br><br>
+
+<a class="button" onclick="refreshMarketCap()">refresh market cap</a>
+
+<div id="marketStatus" style="color:#777;font-size:14px;margin-top:10px;"></div>
+
+</div>
+
+<h2>live biotech intelligence terminal</h2>
+
+<div class="researchFeed" id="researchFeed">
+[boot] initializing...
+</div>
+
+<div id="feedStatus" style="margin-top:10px;color:#777;font-size:14px;"></div>
+
+<div class="cta">
+<h2>enter the bio/acc movement</h2>
+<p>Read the manifesto and align with the future of biotech.</p>
+<a class="button" href="manifesto.html">read manifesto →</a>
+</div>
+
+<div class="cta">
+<h2>build with bio/acc</h2>
+<p>Submit your startup and get visibility + potential funding.</p>
+<a class="button" href="fund.html">enter fund →</a>
+</div>
+
+<h2>community</h2>
+
+<div class="links">
+<a href="https://bioacc.life">manifesto (ETH)</a>
+<a href="https://x.com/i/communities/2030792349631361266">community</a>
+<a href="https://dexscreener.com/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw">dexscreener</a>
+</div>
+
+<footer>
+bio/acc is a movement accelerating biotechnology.
+</footer>
+
+</div>
+
+<script>
+
+// MARKET CAP
+async function refreshMarketCap(){
+
+const mc=document.getElementById("marketCap")
+const status=document.getElementById("marketStatus")
+
+try{
+const res=await fetch("https://api.dexscreener.com/latest/dex/pairs/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw")
+const data=await res.json()
+const cap=data.pair?.fdv || 0
+mc.innerText="$"+Number(cap).toLocaleString()
+status.innerText="market cap updated: "+new Date().toLocaleString()
+}catch{
+status.innerText="market data unavailable"
+}
+}
+
+// 🔥 STATS
+async function loadStats(){
+try{
+const res=await fetch("https://raw.githubusercontent.com/cryptogatsu/bioacc/main/submissions.json?t="+Date.now())
+const data=await res.json()
+
+let totalVotes=0
+data.projects?.forEach(p=>{
+totalVotes+=(p.votes||0)
+})
+
+document.getElementById("statProjects").innerText=data.projects?.length||0
+document.getElementById("statVotes").innerText=totalVotes
+document.getElementById("statSigners").innerText=data.manifesto?.length||0
+
+}catch(err){
+console.log("stats error",err)
+}
+}
+
+// DELAY
+function delay(ms){return new Promise(r=>setTimeout(r,ms))}
+
+// TYPE LINE
+async function typeLine(container,text){
+const line=document.createElement("div")
+line.className="new-line"
+container.appendChild(line)
+let i=0
+while(i<text.length){
+line.innerHTML=text.slice(0,i)+'<span class="cursor"></span>'
+i++
+await delay(8)
+}
+line.innerHTML=text
+line.style.color="#7CFF3A"
+setTimeout(()=>{line.style.color="#cfcfcf"},400)
+}
+
+// LOAD FEED
+async function loadResearch(){
+
+const feed=document.getElementById("researchFeed")
+const status=document.getElementById("feedStatus")
+
+try{
+
+const res=await fetch("https://raw.githubusercontent.com/cryptogatsu/bioacc/main/news.json?cache="+Date.now(),{cache:"no-store"})
+const data=await res.json()
+
+feed.innerHTML=""
+
+await typeLine(feed,"[sync] connecting to bio/acc intelligence network...")
+await delay(200)
+
+for(const item of data.items){
+await delay(50+Math.random()*120)
+await typeLine(feed,"> "+item)
+feed.scrollTop=feed.scrollHeight
+}
+
+status.innerText="intelligence updated: "+new Date(data.lastUpdated).toLocaleString()
+
+}catch{
+feed.innerHTML="[error] intelligence network offline"
+}
+}
+
+// INIT
+loadResearch()
+refreshMarketCap()
+loadStats()
+
+setInterval(loadResearch,180000)
+setInterval(refreshMarketCap,60000)
+setInterval(loadStats,60000)
+
+</script>
+
+</body>
+</html>
