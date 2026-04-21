@@ -9,8 +9,6 @@
 
 <style>
 
-/* ORIGINAL STYLES (UNCHANGED) */
-
 body{
 margin:0;
 background:#000;
@@ -176,6 +174,7 @@ align-items: center;
 z-index: 9999;
 }
 
+/* 🔥 FIX */
 .modal-content{
 background:#000;
 border:1px solid #222;
@@ -198,7 +197,7 @@ float:right;
 
 <body>
 
-<!-- PROFILE MODAL -->
+<!-- 🔥 FIX: moved inside body -->
 <div id="profileModal" class="modal">
 <div class="modal-content">
 <span class="close" onclick="closeProfile()">[close]</span>
@@ -277,7 +276,7 @@ float:right;
 
 <script>
 
-/* 🔥 ONLY ADDITIONS — NOTHING REMOVED */
+/* 🔥 ADDITIONS ONLY — NOTHING REMOVED */
 
 function initProfile(){
 if(!wallet || !backendData) return
@@ -308,21 +307,25 @@ function closeProfile(){
 document.getElementById("profileModal").style.display="none"
 }
 
-/* 🔥 SAFE HOOK (no override) */
-const originalConnect = connectWallet
+/* 🔥 SAFE HOOK INTO YOUR EXISTING FLOW */
+const originalLoadProjects = loadProjects
 
-connectWallet = async function(){
-await originalConnect()
-
+loadProjects = async function(){
+await originalLoadProjects()
 initProfile()
+}
 
-document.getElementById("walletStatus").onclick = () => {
+/* 🔥 CLICK WALLET */
+document.addEventListener("click", e=>{
+if(e.target.id === "walletStatus" && wallet){
 document.getElementById("profileModal").style.display="flex"
+
 document.getElementById("profileWallet").innerText =
 wallet.slice(0,4)+"..."+wallet.slice(-4)
+
 initProfile()
 }
-}
+})
 
 </script>
 
