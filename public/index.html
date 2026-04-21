@@ -210,7 +210,7 @@ text-decoration:underline;
 <div>signers: <span id="statSigners">-</span></div>
 </div>
 
-<button onclick="connectWallet()">connect wallet</button>
+<button class="button" onclick="connectWallet()">connect wallet</button>
 <p id="walletStatus"></p>
 
 </div>
@@ -268,7 +268,7 @@ bio/acc is a movement accelerating biotechnology.
 
 </div>
 
-<script src="/wallet.js"></script>
+<script src="wallet.js"></script>
 
 <script>
 
@@ -388,8 +388,12 @@ feed.innerHTML="[error] intelligence network offline"
 
 window.addEventListener("DOMContentLoaded", async () => {
 
-  // INIT
   await autoConnect()
+
+  if(wallet){
+    document.getElementById("walletStatus").innerHTML =
+      `wallet: ${getDisplayName(wallet)}`
+  }
 
   loadResearch()
   refreshMarketCap()
