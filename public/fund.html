@@ -163,12 +163,43 @@ margin-top:20px;
 margin:5px;
 }
 
+/* 🔥 FIX: ADD MISSING MODAL STYLES */
+.modal{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.9);
+display:none;
+justify-content:center;
+align-items:center;
+z-index:9999;
+}
+
+.modal-content{
+background:#000;
+border:1px solid #222;
+padding:20px;
+width:90%;
+max-width:500px;
+}
+
+.close{
+cursor:pointer;
+color:#7CFF3A;
+float:right;
+}
+
 
 
 </style>
 </head>
 <link rel="icon" type="image/png" href="/favicon.png">
 
+<body>
+
+  <!-- 🔥 FIX: MOVED INSIDE BODY -->
 <div id="profileModal" class="modal">
   <div class="modal-content">
     <span class="close" onclick="closeProfile()">[close]</span>
@@ -185,10 +216,6 @@ margin:5px;
     <div id="profileBadges"></div>
   </div>
 </div>
-
-
-
-<body>
 
 <div class="nav">
 <div>bio/acc fund</div>
@@ -263,6 +290,9 @@ let backendData=null
 let currentPage=0
 const perPage=5
 
+function closeProfile(){
+document.getElementById("profileModal").style.display="none"
+}
 
 
 function toggleConfirm(){
