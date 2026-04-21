@@ -272,19 +272,22 @@ bio/acc is a movement accelerating biotechnology.
 
 <script>
 
-  function getDisplayName(w){
+function getDisplayName(w){
 
-if(!backendData || !backendData.profiles) {
-return w.slice(0,4)+"..."+w.slice(-4)
-}
+  try{
 
-const profile = backendData.profiles[w]
+    if(typeof backendData !== "undefined" && backendData?.profiles){
+      const profile = backendData.profiles[w]
+      if(profile && profile.username){
+        return profile.username
+      }
+    }
 
-if(profile && profile.username){
-return profile.username
-}
+  }catch(e){
+    console.log("profile lookup fail", e)
+  }
 
-return w.slice(0,4)+"..."+w.slice(-4)
+  return w.slice(0,4) + "..." + w.slice(-4)
 }
 
 function profileLink(wallet){
