@@ -210,6 +210,33 @@ try {
     content.manifesto.unshift(entry)
   }
 
+  // =========================
+// 👤 SAVE PROFILE
+// =========================
+if (action === "saveProfile") {
+
+  const p = data
+
+  if (!p.wallet || !p.signature || !p.message) {
+    return res.status(400).json({ error: "missing signature data" })
+  }
+
+  const valid = verifySignature(p.wallet, p.message, p.signature)
+
+  if (!valid) {
+    return res.status(400).json({ error: "invalid signature" })
+  }
+
+  if (!content.profiles) content.profiles = {}
+
+  content.profiles[p.wallet] = {
+    username: p.username,
+    bio: p.bio,
+    updated: p.timestamp
+  }
+
+}
+
   content.lastUpdated = new Date().toISOString()
 
   await updateGitHub(content)

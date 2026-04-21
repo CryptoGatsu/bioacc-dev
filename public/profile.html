@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>profile</title>
+
+<style>
+
+body{
+margin:0;
+background:#000;
+color:#cfcfcf;
+font-family:Courier New, monospace;
+}
+
+.nav{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+padding:15px 25px;
+background:#000;
+border-bottom:1px solid #111;
+display:flex;
+justify-content:space-between;
+}
+
+.nav a{color:#7CFF3A;text-decoration:none;margin-left:20px;}
+
+.container{
+max-width:800px;
+margin:auto;
+padding:120px 20px;
+}
+
+h1{color:white;}
+
+input, textarea{
+width:100%;
+background:#000;
+border:1px solid #333;
+color:white;
+padding:10px;
+margin-top:10px;
+}
+
+button{
+background:#7CFF3A;
+border:none;
+padding:10px;
+margin-top:10px;
+cursor:pointer;
+}
+
+.section{margin-top:40px;}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="nav">
+<div>profile</div>
+<div>
+<a href="/">home</a>
+<a href="/fund">fund</a>
+</div>
+</div>
+
+<div class="container">
+
+<h1 id="walletTitle">wallet</h1>
+
+<div class="section">
+<b>username</b>
+<input id="username">
+</div>
+
+<div class="section">
+<b>bio</b>
+<textarea id="bio"></textarea>
+</div>
+
+<button onclick="saveProfile()">save profile</button>
+
+<div class="section">
+<h2>projects</h2>
+<div id="projects"></div>
+</div>
+
+<div class="section">
+<h2>voted</h2>
+<div id="voted"></div>
+</div>
+
+<div class="section">
+<h2>badges</h2>
+<div id="badges"></div>
+</div>
+
+</div>
+
+<script>
+
+let wallet = null
+let viewingWallet = null
+let backendData = null
+
+// 🔥 GET WALLET FROM URL
+const params = new URLSearchParams(window.location.search)
+viewingWallet = params.get("wallet")
+
+async function load(){
+
+const res = await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
+backendData = await res.json()
+
+wallet = window.solana?.publicKey?.toString() || null
+
+render()
+
+}
+
+function render(){
+
+if(!viewingWallet){
+document.getElementById("walletTitle").innerText="no wallet"
+return
+}
+
+const short = viewingWallet.slice(0,4)+"..."+viewingWallet.slice(-4)
+
+document.getElementById("walletTitle").innerText = short
+
+const profile = backendData.profiles?.[viewingWallet] || {}
+
+document.getElementById("username").value = profile.username || ""
+document.getElementById("bio").value = profile.bio || ""
+
+// PROJECTS
+const projects = backendData.projects.filter(p=>p.wallet===viewingWallet)
+document.getElementById("projects").innerHTML =
+projects.map(p=>`<div>${p.name}</div>`).join("") || "none"
+
+// VOTED
+const votedId = backendData.voteIndex?.[viewingWallet]
+const voted = backendData.projects.find(p=>p.id===votedId)
+document.getElementById("voted").innerText = voted ? voted.name : "none"
+
+// BADGES
+let badges = []
+if(projects.length) badges.push("builder")
+if(votedId) badges.push("voter")
+if(backendData.manifesto?.find(s=>s.wallet===viewingWallet)) badges.push("signer")
+
+document.getElementById("badges").innerText = badges.join(" | ") || "none"
+
+}
+
+// 🔥 SAVE PROFILE
+async function saveProfile(){
+
+if(!wallet || wallet !== viewingWallet){
+return alert("connect wallet to edit")
+}
+
+const username = document.getElementById("username").value
+const bio = document.getElementById("bio").value
+
+const timestamp = Date.now()
+const message = `profile:${wallet}:${timestamp}`
+
+const encoded = new TextEncoder().encode(message)
+const signed = await window.solana.signMessage(encoded,"utf8")
+
+await fetch("/api/update",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+action:"saveProfile",
+data:{
+wallet,
+username,
+bio,
+timestamp,
+signature:Array.from(signed.signature),
+message
+}
+})
+})
+
+alert("saved")
+
+}
+
+load()
+
+</script>
+
+</body>
+</html>
