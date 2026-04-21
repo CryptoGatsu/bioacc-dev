@@ -1,67 +1,54 @@
-// profile.js
+let profileInitialized = false
 
-let WALLET = null
-let DATA = null
+function initProfileSafe(){
+if(profileInitialized) return
+if(typeof wallet === "undefined") return
+if(typeof backendData === "undefined") return
 
-async function connectWalletGlobal(){
-  const res = await window.solana.connect()
-  WALLET = res.publicKey.toString()
+profileInitialized = true
 
-  updateWalletUI()
-  loadGlobalData()
+const walletEl = document.getElementById("walletStatus")
+if(!walletEl) return
+
+walletEl.onclick = () => {
+document.getElementById("profileModal").style.display = "flex"
+
+document.getElementById("profileWallet").innerText =
+wallet.slice(0,4)+"..."+wallet.slice(-4)
+
+renderProfile()
+}
 }
 
-function updateWalletUI(){
-  const el = document.getElementById("walletDisplay")
-  if(!el) return
+function renderProfile(){
 
-  el.innerText =
-    WALLET.slice(0,4)+"..."+WALLET.slice(-4)
-}
+if(!backendData || !wallet) return
 
-async function loadGlobalData(){
-  const res = await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc/main/submissions.json?t="+Date.now())
-  DATA = await res.json()
-}
+const userProjects = backendData.projects.filter(p => p.wallet === wallet)
 
-// PROFILE OPEN
-function openProfile(){
-  if(!WALLET || !DATA) return
+document.getElementById("profileProjects").innerHTML =
+userProjects.map(p => `<div>${p.name}</div>`).join("")
 
-  document.getElementById("profileModal").style.display="flex"
+const votedId = backendData.voteIndex?.[wallet]
+const votedProject = backendData.projects.find(p => p.id === votedId)
 
-  document.getElementById("profileWallet").innerText =
-    WALLET.slice(0,4)+"..."+WALLET.slice(-4)
+document.getElementById("profileVote").innerText =
+votedProject ? votedProject.name : "none"
 
-  const userProjects = DATA.projects.filter(p => p.wallet === WALLET)
+let badges = []
+if(userProjects.length) badges.push("builder")
+if(votedId) badges.push("voter")
 
-  document.getElementById("profileProjects").innerHTML =
-    userProjects.map(p => `<div>${p.name}</div>`).join("")
+const signed = backendData.manifesto?.find(s => s.wallet === wallet)
+if(signed) badges.push("signer")
 
-  const votedId = DATA.voteIndex?.[WALLET]
-  const votedProject = DATA.projects.find(p => p.id === votedId)
-
-  document.getElementById("profileVote").innerText =
-    votedProject ? votedProject.name : "none"
-
-  let badges = []
-  if(userProjects.length) badges.push("builder")
-  if(votedId) badges.push("voter")
-
-  const signed = DATA.manifesto?.find(s => s.wallet === WALLET)
-  if(signed) badges.push("signer")
-
-  document.getElementById("profileBadges").innerText =
-    badges.join(" | ")
+document.getElementById("profileBadges").innerText =
+badges.join(" | ")
 }
 
 function closeProfile(){
-  document.getElementById("profileModal").style.display="none"
+document.getElementById("profileModal").style.display = "none"
 }
 
-// GLOBAL CLICK
-document.addEventListener("click", e=>{
-  if(e.target.id === "walletDisplay"){
-    openProfile()
-  }
-})
+// wait for your app to load
+setInterval(initProfileSafe, 500)
