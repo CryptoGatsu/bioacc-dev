@@ -386,15 +386,20 @@ feed.innerHTML="[error] intelligence network offline"
 }
 }
 
-// INIT
-await autoConnect()
-loadResearch()
-refreshMarketCap()
-loadStats()
+window.addEventListener("DOMContentLoaded", async () => {
 
-setInterval(loadResearch,180000)
-setInterval(refreshMarketCap,60000)
-setInterval(loadStats,60000)
+  // INIT
+  await autoConnect()
+
+  loadResearch()
+  refreshMarketCap()
+  loadStats()
+
+  setInterval(loadResearch, 180000)
+  setInterval(refreshMarketCap, 60000)
+  setInterval(loadStats, 60000)
+
+})
 
 </script>
 
