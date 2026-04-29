@@ -535,6 +535,18 @@ reader.readAsDataURL(file)
 })
 }
 
+let backendData = null
+
+async function loadBackend(){
+
+  const res = await fetch(
+    "https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t=" + Date.now()
+  )
+
+  backendData = await res.json()
+
+}
+
 // 🔥 ADD ID ON CREATE
 const id = "proj_" + Math.random().toString(36).substring(2,10)
 
@@ -567,8 +579,16 @@ function nextPage(){currentPage++;loadProjects()}
 function prevPage(){if(currentPage>0)currentPage--;loadProjects()}
 function goPage(p){currentPage=p;loadProjects()}
 
-await autoConnect()
-await loadProjects()
+window.addEventListener("DOMContentLoaded", async () => {
+
+  await loadBackend()   // 🔥 FIRST
+  await autoConnect()   // THEN wallet
+
+  loadResearch()
+  refreshMarketCap()
+  loadStats()
+
+})
 
 
 

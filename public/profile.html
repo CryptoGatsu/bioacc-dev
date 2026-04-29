@@ -215,9 +215,7 @@ document.getElementById("badges").innerText = badges.join(" | ") || "none"
 // 🔥 SAVE PROFILE
 async function saveProfile(){
 
-if(!wallet || wallet !== viewingWallet){
-return alert("connect wallet to edit")
-}
+if(!wallet) return alert("connect wallet")
 
 const username = document.getElementById("username").value
 const bio = document.getElementById("bio").value
@@ -226,7 +224,7 @@ const timestamp = Date.now()
 const message = `profile:${wallet}:${timestamp}`
 
 const encoded = new TextEncoder().encode(message)
-const signed = await window.solana.signMessage(encoded,"utf8")
+const signed = await window.solana.signMessage(encoded, "utf8")
 
 await fetch("/api/update",{
 method:"POST",
@@ -244,12 +242,34 @@ message
 })
 })
 
-alert("saved")
+alert("profile saved")
 
 }
 
-await autoConnect()
-load()
+function loadProfile(){
+
+if(!wallet || !backendData) return
+
+const p = backendData.profiles?.[wallet]
+
+if(!p) return
+
+document.getElementById("username").value = p.username || ""
+document.getElementById("bio").value = p.bio || ""
+
+}
+
+window.addEventListener("DOMContentLoaded", async () => {
+
+  await loadBackend()   // 🔥 FIRST
+  await autoConnect()   // THEN wallet
+  loadProfile()
+
+  loadResearch()
+  refreshMarketCap()
+  loadStats()
+
+})
 
 
 </script>

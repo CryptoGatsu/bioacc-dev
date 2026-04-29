@@ -360,6 +360,18 @@ line.style.color="#7CFF3A"
 setTimeout(()=>{line.style.color="#cfcfcf"},400)
 }
 
+let backendData = null
+
+async function loadBackend(){
+
+  const res = await fetch(
+    "https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t=" + Date.now()
+  )
+
+  backendData = await res.json()
+
+}
+
 // LOAD FEED
 async function loadResearch(){
 
@@ -391,20 +403,12 @@ feed.innerHTML="[error] intelligence network offline"
 
 window.addEventListener("DOMContentLoaded", async () => {
 
-  await autoConnect()
-
-  if(wallet){
-    document.getElementById("walletStatus").innerHTML =
-      `wallet: ${getDisplayName(wallet)}`
-  }
+  await loadBackend()   // 🔥 FIRST
+  await autoConnect()   // THEN wallet
 
   loadResearch()
   refreshMarketCap()
   loadStats()
-
-  setInterval(loadResearch, 180000)
-  setInterval(refreshMarketCap, 60000)
-  setInterval(loadStats, 60000)
 
 })
 
