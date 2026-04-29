@@ -135,21 +135,24 @@ let wallet = null
 let viewingWallet = null
 let backendData = null
 
-// 🔥 GET WALLET FROM URL
+// GET WALLET FROM URL
 const params = new URLSearchParams(window.location.search)
 viewingWallet = params.get("wallet")
 
+// LOAD BACKEND + RENDER
 async function load(){
 
 const res = await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
 backendData = await res.json()
 
-wallet = window.solana?.publicKey?.toString() || null
+// use persistent wallet
+wallet = localStorage.getItem("wallet") || null
 
 render()
 
 }
 
+// DISPLAY NAME
 function getDisplayName(w){
 
 if(!backendData || !backendData.profiles) {
@@ -165,18 +168,12 @@ return profile.username
 return w.slice(0,4)+"..."+w.slice(-4)
 }
 
-function profileLink(wallet){
-
-const name = getDisplayName(wallet)
-
-return `<span class="profile-link" onclick="goProfile('${wallet}')">${name}</span>`
-
-}
-
+// PROFILE NAV LINK
 function goProfile(wallet){
 window.location = "/profile?wallet=" + wallet
 }
 
+// RENDER PAGE
 function render(){
 
 if(!viewingWallet){
@@ -191,6 +188,12 @@ const profile = backendData.profiles?.[viewingWallet] || {}
 
 document.getElementById("username").value = profile.username || ""
 document.getElementById("bio").value = profile.bio || ""
+
+// LOCK IF NOT OWNER
+if(wallet !== viewingWallet){
+document.getElementById("username").disabled = true
+document.getElementById("bio").disabled = true
+}
 
 // PROJECTS
 const projects = backendData.projects.filter(p=>p.wallet===viewingWallet)
@@ -212,10 +215,17 @@ document.getElementById("badges").innerText = badges.join(" | ") || "none"
 
 }
 
-// 🔥 SAVE PROFILE
+// SAVE PROFILE
 async function saveProfile(){
 
-if(!wallet) return alert("connect wallet")
+if(!wallet){
+wallet = localStorage.getItem("wallet")
+}
+
+if(!wallet){
+alert("connect wallet")
+return
+}
 
 const username = document.getElementById("username").value
 const bio = document.getElementById("bio").value
@@ -223,8 +233,13 @@ const bio = document.getElementById("bio").value
 const timestamp = Date.now()
 const message = `profile:${wallet}:${timestamp}`
 
+if(!window.solana){
+alert("wallet not ready")
+return
+}
+
 const encoded = new TextEncoder().encode(message)
-const signed = await window.solana.signMessage(encoded, "utf8")
+const signed = await window.solana.signMessage(encoded,"utf8")
 
 await fetch("/api/update",{
 method:"POST",
@@ -246,6 +261,7 @@ alert("profile saved")
 
 }
 
+// LOAD PROFILE INPUTS (OWNER ONLY)
 function loadProfile(){
 
 if(!wallet || !backendData) return
@@ -259,18 +275,14 @@ document.getElementById("bio").value = p.bio || ""
 
 }
 
+// INIT
 window.addEventListener("DOMContentLoaded", async () => {
 
-  await loadBackend()   // 🔥 FIRST
-  await autoConnect()   // THEN wallet
+  await load()
+  await autoConnect()
   loadProfile()
 
-  loadResearch()
-  refreshMarketCap()
-  loadStats()
-
 })
-
 
 </script>
 
