@@ -309,20 +309,6 @@ function closeProfile(){
 document.getElementById("profileModal").style.display="none"
 }
 
-function getDisplayName(w){
-
-if(!backendData || !backendData.profiles) {
-return w.slice(0,4)+"..."+w.slice(-4)
-}
-
-const profile = backendData.profiles[w]
-
-if(profile && profile.username){
-return profile.username
-}
-
-return w.slice(0,4)+"..."+w.slice(-4)
-}
 
 function profileLink(wallet){
 

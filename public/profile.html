@@ -133,11 +133,9 @@ text-decoration:underline;
 
 let viewingWallet = null
 
-// GET WALLET FROM URL
 const params = new URLSearchParams(window.location.search)
 viewingWallet = params.get("wallet")
 
-// LOAD PAGE
 async function load(){
 
   await loadBackend()
@@ -145,10 +143,9 @@ async function load(){
   window.wallet = localStorage.getItem("wallet")
 
   render()
-
+  updateWalletUI()
 }
 
-// RENDER PAGE
 function render(){
 
   if(!viewingWallet){
@@ -158,11 +155,11 @@ function render(){
 
   const profile = window.backendData?.profiles?.[viewingWallet] || {}
 
-  // 🔥 NAME + BIO
-  document.getElementById("walletTitle").innerText =
-    profile.username || viewingWallet.slice(0,4)+"..."+viewingWallet.slice(-4)
+  const name = profile.username || viewingWallet.slice(0,4)+"..."+viewingWallet.slice(-4)
 
-  // ADD BIO UNDER NAME
+  document.getElementById("walletTitle").innerText = name
+
+  // BIO
   let bioEl = document.getElementById("profileBio")
   if(!bioEl){
     bioEl = document.createElement("div")
@@ -174,42 +171,12 @@ function render(){
 
   bioEl.innerText = profile.bio || ""
 
-  // INPUT FIELDS
   document.getElementById("username").value = profile.username || ""
   document.getElementById("bio").value = profile.bio || ""
 
-  // LOCK IF NOT OWNER
-  if(window.wallet !== viewingWallet){
-    document.getElementById("username").disabled = true
-    document.getElementById("bio").disabled = true
-  }
-
-  // PROJECTS
-  const projects = window.backendData.projects?.filter(p=>p.wallet===viewingWallet) || []
-  document.getElementById("projects").innerHTML =
-    projects.map(p=>`<div>${p.name}</div>`).join("") || "none"
-
-  // VOTED
-  const votedId = window.backendData.voteIndex?.[viewingWallet]
-  const voted = window.backendData.projects?.find(p=>p.id===votedId)
-  document.getElementById("voted").innerText = voted ? voted.name : "none"
-
-  // BADGES
-  let badges = []
-  if(projects.length) badges.push("builder")
-  if(votedId) badges.push("voter")
-  if(window.backendData.manifesto?.find(s=>s.wallet===viewingWallet)) badges.push("signer")
-
-  document.getElementById("badges").innerText = badges.join(" | ") || "none"
-
 }
 
-// SAVE PROFILE
 async function saveProfile(){
-
-  if(!window.wallet){
-    window.wallet = localStorage.getItem("wallet")
-  }
 
   if(!window.wallet){
     alert("connect wallet")
@@ -221,11 +188,6 @@ async function saveProfile(){
 
   const timestamp = Date.now()
   const message = `profile:${window.wallet}:${timestamp}`
-
-  if(!window.solana){
-    alert("wallet not ready")
-    return
-  }
 
   const encoded = new TextEncoder().encode(message)
   const signed = await window.solana.signMessage(encoded,"utf8")
@@ -246,24 +208,16 @@ async function saveProfile(){
     })
   })
 
-  alert("profile saved")
+  await new Promise(r=>setTimeout(r,1200))
 
-  // 🔥 WAIT FOR GITHUB TO UPDATE
-await new Promise(r => setTimeout(r, 1500))
-
-  // 🔥 REAL-TIME SYNC
   await loadBackend()
-  updateWalletUI()
   render()
-
+  updateWalletUI()
 }
 
-// INIT
 window.addEventListener("DOMContentLoaded", async () => {
-
   await autoConnect()
   await load()
-
 })
 
 </script>

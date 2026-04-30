@@ -272,24 +272,6 @@ bio/acc is a movement accelerating biotechnology.
 
 <script>
 
-function getDisplayName(w){
-
-  try{
-
-    if(typeof backendData !== "undefined" && backendData?.profiles){
-      const profile = backendData.profiles[w]
-      if(profile && profile.username){
-        return profile.username
-      }
-    }
-
-  }catch(e){
-    console.log("profile lookup fail", e)
-  }
-
-  return w.slice(0,4) + "..." + w.slice(-4)
-}
-
 function profileLink(wallet){
 
 const name = getDisplayName(wallet)
@@ -360,17 +342,6 @@ line.style.color="#7CFF3A"
 setTimeout(()=>{line.style.color="#cfcfcf"},400)
 }
 
-let backendData = null
-
-async function loadBackend(){
-
-  const res = await fetch(
-    "https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t=" + Date.now()
-  )
-
-  backendData = await res.json()
-
-}
 
 // LOAD FEED
 async function loadResearch(){

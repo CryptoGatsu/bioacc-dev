@@ -174,115 +174,62 @@ bio/acc is a decentralized movement accelerating biotechnology.
 
 <script>
 
-let walletAddress=null
-
-function getDisplayName(w){
-
-if(!backendData || !backendData.profiles) {
-return w.slice(0,4)+"..."+w.slice(-4)
-}
-
-const profile = backendData.profiles[w]
-
-if(profile && profile.username){
-return profile.username
-}
-
-return w.slice(0,4)+"..."+w.slice(-4)
-}
-
-function profileLink(wallet){
-
-const name = getDisplayName(wallet)
-
-return `<span class="profile-link" onclick="goProfile('${wallet}')">${name}</span>`
-
-}
-
-function goProfile(wallet){
-window.location = "/profile?wallet=" + wallet
-}
-
-async function connectWallet(){
-const provider=window.solana
-if(!provider || !provider.isPhantom){
-alert("Phantom not found")
-return
-}
-const res=await provider.connect()
-walletAddress=res.publicKey.toString()
-
-document.getElementById("walletStatus").innerText=
-walletAddress.slice(0,4)+"..."+walletAddress.slice(-4)
-
-loadSignatures()
-}
-
 async function loadSignatures(){
-const res=await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
-const data=await res.json()
 
-render(data.manifesto || [])
-}
+  await loadBackend()
 
-function render(sigs){
-const list=document.getElementById("signatures")
-const count=document.getElementById("signatureCount")
+  const sigs = window.backendData.manifesto || []
 
-list.innerHTML=""
+  const list=document.getElementById("signatures")
+  const count=document.getElementById("signatureCount")
 
-sigs.forEach(sig=>{
-const el=document.createElement("div")
-el.className="signature"
-el.innerText=`> ${sig.wallet.slice(0,4)}...${sig.wallet.slice(-4)} — ${sig.note}`
-list.appendChild(el)
-})
+  list.innerHTML=""
 
-count.innerText=sigs.length+" people have signed the bio/acc manifesto"
-}
+  sigs.forEach(sig=>{
+    const el=document.createElement("div")
+    el.className="signature"
+    el.innerText=`> ${getDisplayName(sig.wallet)} — ${sig.note}`
+    list.appendChild(el)
+  })
 
-async function loadBackend(){
-
-const res = await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
-backendData = await res.json()
-
+  count.innerText=sigs.length+" people have signed the bio/acc manifesto"
 }
 
 async function signManifesto(){
 
-if(!walletAddress) return alert("connect wallet")
+  if(!window.wallet) return alert("connect wallet")
 
-const note=document.getElementById("note").value || "signed manifesto"
+  const note=document.getElementById("note").value || "signed manifesto"
 
-const timestamp=Date.now()
-const message=`manifesto:${walletAddress}:${timestamp}`
+  const timestamp=Date.now()
+  const message=`manifesto:${window.wallet}:${timestamp}`
 
-const encoded=new TextEncoder().encode(message)
-const signed=await window.solana.signMessage(encoded,"utf8")
+  const encoded=new TextEncoder().encode(message)
+  const signed=await window.solana.signMessage(encoded,"utf8")
 
-await fetch("/api/update",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({
-action:"signManifesto",
-data:{
-wallet:walletAddress,
-note,
-timestamp,
-signature:Array.from(signed.signature),
-message
+  await fetch("/api/update",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      action:"signManifesto",
+      data:{
+        wallet:window.wallet,
+        note,
+        timestamp,
+        signature:Array.from(signed.signature),
+        message
+      }
+    })
+  })
+
+  await loadSignatures()
 }
-})
-})
 
-document.getElementById("note").value=""
-loadSignatures()
-}
-
-await autoConnect()
-loadSignatures()
+window.addEventListener("DOMContentLoaded", async () => {
+  await autoConnect()
+  await loadSignatures()
+})
 
 </script>
-
 </body>
 </html>
