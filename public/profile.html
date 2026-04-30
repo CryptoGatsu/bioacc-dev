@@ -131,159 +131,135 @@ text-decoration:underline;
 
 <script>
 
-let wallet = null
 let viewingWallet = null
-let backendData = null
 
 // GET WALLET FROM URL
 const params = new URLSearchParams(window.location.search)
 viewingWallet = params.get("wallet")
 
-// LOAD BACKEND + RENDER
+// LOAD PAGE
 async function load(){
 
-const res = await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
-backendData = await res.json()
+  await loadBackend()
 
-// use persistent wallet
-wallet = localStorage.getItem("wallet") || null
+  window.wallet = localStorage.getItem("wallet")
 
-render()
+  render()
 
-}
-
-// DISPLAY NAME
-function getDisplayName(w){
-
-if(!backendData || !backendData.profiles) {
-return w.slice(0,4)+"..."+w.slice(-4)
-}
-
-const profile = backendData.profiles[w]
-
-if(profile && profile.username){
-return profile.username
-}
-
-return w.slice(0,4)+"..."+w.slice(-4)
-}
-
-// PROFILE NAV LINK
-function goProfile(wallet){
-window.location = "/profile?wallet=" + wallet
 }
 
 // RENDER PAGE
 function render(){
 
-if(!viewingWallet){
-document.getElementById("walletTitle").innerText="no wallet"
-return
-}
+  if(!viewingWallet){
+    document.getElementById("walletTitle").innerText = "no wallet"
+    return
+  }
 
-document.getElementById("walletTitle").innerText =
-getDisplayName(viewingWallet)
+  const profile = window.backendData?.profiles?.[viewingWallet] || {}
 
-const profile = backendData.profiles?.[viewingWallet] || {}
+  // 🔥 NAME + BIO
+  document.getElementById("walletTitle").innerText =
+    profile.username || viewingWallet.slice(0,4)+"..."+viewingWallet.slice(-4)
 
-document.getElementById("username").value = profile.username || ""
-document.getElementById("bio").value = profile.bio || ""
+  // ADD BIO UNDER NAME
+  let bioEl = document.getElementById("profileBio")
+  if(!bioEl){
+    bioEl = document.createElement("div")
+    bioEl.id = "profileBio"
+    bioEl.style.color = "#777"
+    bioEl.style.marginTop = "10px"
+    document.getElementById("walletTitle").after(bioEl)
+  }
 
-// LOCK IF NOT OWNER
-if(wallet !== viewingWallet){
-document.getElementById("username").disabled = true
-document.getElementById("bio").disabled = true
-}
+  bioEl.innerText = profile.bio || ""
 
-// PROJECTS
-const projects = backendData.projects.filter(p=>p.wallet===viewingWallet)
-document.getElementById("projects").innerHTML =
-projects.map(p=>`<div>${p.name}</div>`).join("") || "none"
+  // INPUT FIELDS
+  document.getElementById("username").value = profile.username || ""
+  document.getElementById("bio").value = profile.bio || ""
 
-// VOTED
-const votedId = backendData.voteIndex?.[viewingWallet]
-const voted = backendData.projects.find(p=>p.id===votedId)
-document.getElementById("voted").innerText = voted ? voted.name : "none"
+  // LOCK IF NOT OWNER
+  if(window.wallet !== viewingWallet){
+    document.getElementById("username").disabled = true
+    document.getElementById("bio").disabled = true
+  }
 
-// BADGES
-let badges = []
-if(projects.length) badges.push("builder")
-if(votedId) badges.push("voter")
-if(backendData.manifesto?.find(s=>s.wallet===viewingWallet)) badges.push("signer")
+  // PROJECTS
+  const projects = window.backendData.projects?.filter(p=>p.wallet===viewingWallet) || []
+  document.getElementById("projects").innerHTML =
+    projects.map(p=>`<div>${p.name}</div>`).join("") || "none"
 
-document.getElementById("badges").innerText = badges.join(" | ") || "none"
+  // VOTED
+  const votedId = window.backendData.voteIndex?.[viewingWallet]
+  const voted = window.backendData.projects?.find(p=>p.id===votedId)
+  document.getElementById("voted").innerText = voted ? voted.name : "none"
+
+  // BADGES
+  let badges = []
+  if(projects.length) badges.push("builder")
+  if(votedId) badges.push("voter")
+  if(window.backendData.manifesto?.find(s=>s.wallet===viewingWallet)) badges.push("signer")
+
+  document.getElementById("badges").innerText = badges.join(" | ") || "none"
 
 }
 
 // SAVE PROFILE
 async function saveProfile(){
 
-if(!wallet){
-wallet = localStorage.getItem("wallet")
-}
+  if(!window.wallet){
+    window.wallet = localStorage.getItem("wallet")
+  }
 
-if(!wallet){
-alert("connect wallet")
-return
-}
+  if(!window.wallet){
+    alert("connect wallet")
+    return
+  }
 
-const username = document.getElementById("username").value
-const bio = document.getElementById("bio").value
+  const username = document.getElementById("username").value
+  const bio = document.getElementById("bio").value
 
-const timestamp = Date.now()
-const message = `profile:${wallet}:${timestamp}`
+  const timestamp = Date.now()
+  const message = `profile:${window.wallet}:${timestamp}`
 
-if(!window.solana){
-alert("wallet not ready")
-return
-}
+  if(!window.solana){
+    alert("wallet not ready")
+    return
+  }
 
-const encoded = new TextEncoder().encode(message)
-const signed = await window.solana.signMessage(encoded,"utf8")
+  const encoded = new TextEncoder().encode(message)
+  const signed = await window.solana.signMessage(encoded,"utf8")
 
-await fetch("/api/update",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({
-action:"saveProfile",
-data:{
-wallet,
-username,
-bio,
-timestamp,
-signature:Array.from(signed.signature),
-message
-}
-})
-})
+  await fetch("/api/update",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      action:"saveProfile",
+      data:{
+        wallet: window.wallet,
+        username,
+        bio,
+        timestamp,
+        signature:Array.from(signed.signature),
+        message
+      }
+    })
+  })
 
-alert("profile saved")
+  alert("profile saved")
 
-await load()
-loadProfile()
-
-}
-
-// LOAD PROFILE INPUTS (OWNER ONLY)
-function loadProfile(){
-
-if(!wallet || !backendData) return
-
-const p = backendData.profiles?.[wallet]
-
-if(!p) return
-
-document.getElementById("username").value = p.username || ""
-document.getElementById("bio").value = p.bio || ""
+  // 🔥 REAL-TIME SYNC
+  await loadBackend()
+  updateWalletUI()
+  render()
 
 }
 
 // INIT
 window.addEventListener("DOMContentLoaded", async () => {
 
-  await load()
   await autoConnect()
-  loadProfile()
+  await load()
 
 })
 

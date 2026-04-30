@@ -12,8 +12,13 @@ window.backendData = null
 window.loadBackend = async function(){
 
   try{
-    const res = await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t=" + Date.now())
+    const res = await fetch(
+      "https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t=" + Date.now(),
+      { cache: "no-store" }
+    )
+
     window.backendData = await res.json()
+
   }catch(err){
     console.log("backend load error", err)
     window.backendData = null
@@ -77,15 +82,14 @@ window.autoConnect = async function(){
 
   if(!provider || !provider.isPhantom){
     window.wallet = localStorage.getItem("wallet")
-    return
-  }
-
-  try{
-    const res = await provider.connect({ onlyIfTrusted: true })
-    window.wallet = res.publicKey.toString()
-    localStorage.setItem("wallet", window.wallet)
-  }catch{
-    window.wallet = localStorage.getItem("wallet")
+  } else {
+    try{
+      const res = await provider.connect({ onlyIfTrusted: true })
+      window.wallet = res.publicKey.toString()
+      localStorage.setItem("wallet", window.wallet)
+    }catch{
+      window.wallet = localStorage.getItem("wallet")
+    }
   }
 
   if(window.wallet){
@@ -138,20 +142,19 @@ function updateWalletUI(){
   }
 
   // -------- PROFILE PAGE STATUS --------
-  const profileStatus = document.getElementById("profileWallet")
-  if(profileStatus){
-    profileStatus.innerText =
+  const profileWallet = document.getElementById("profileWallet")
+  if(profileWallet){
+    profileWallet.innerText =
       `${window.wallet.slice(0,4)}...${window.wallet.slice(-4)}`
   }
 
-  // -------- NAV PROFILE BUTTON (GLOBAL) --------
+  // -------- NAV PROFILE BUTTON --------
   const nav = document.querySelector(".nav-links") || document.querySelector(".nav div:last-child")
 
   if(nav){
 
     let el = document.getElementById("navProfile")
 
-    // create if missing
     if(!el){
       el = document.createElement("span")
       el.id = "navProfile"
@@ -166,7 +169,7 @@ function updateWalletUI(){
       nav.appendChild(el)
     }
 
-    // 🔥 ALWAYS UPDATE NAME (fixes your issue)
+    // 🔥 ALWAYS UPDATE NAME (fixes stale username)
     el.innerText = window.getDisplayName(window.wallet)
 
   }
