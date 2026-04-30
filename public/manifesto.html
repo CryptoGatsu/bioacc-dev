@@ -241,6 +241,13 @@ list.appendChild(el)
 count.innerText=sigs.length+" people have signed the bio/acc manifesto"
 }
 
+async function loadBackend(){
+
+const res = await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
+backendData = await res.json()
+
+}
+
 async function signManifesto(){
 
 if(!walletAddress) return alert("connect wallet")
