@@ -12,10 +12,14 @@ window.backendData = null
 window.loadBackend = async function(){
 
   try{
-    const res = await fetch(
-      "https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t=" + Date.now(),
-      { cache: "no-store" }
-    )
+    const url = "https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json"
+
+    const res = await fetch(url + "?t=" + Date.now(), {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache"
+      }
+    })
 
     window.backendData = await res.json()
 
@@ -170,7 +174,13 @@ function updateWalletUI(){
     }
 
     // 🔥 ALWAYS UPDATE NAME (fixes stale username)
-    el.innerText = window.getDisplayName(window.wallet)
+   const newName = window.getDisplayName(window.wallet)
+
+// force change even if same node
+el.textContent = ""
+setTimeout(()=>{
+  el.textContent = newName
+}, 10)
 
   }
 

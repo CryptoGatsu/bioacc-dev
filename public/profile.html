@@ -248,6 +248,9 @@ async function saveProfile(){
 
   alert("profile saved")
 
+  // 🔥 WAIT FOR GITHUB TO UPDATE
+await new Promise(r => setTimeout(r, 1500))
+
   // 🔥 REAL-TIME SYNC
   await loadBackend()
   updateWalletUI()
