@@ -138,33 +138,34 @@ window.updateWalletUI = function(){
   }
 
   // -------- PROFILE PAGE TITLE --------
-  const title = document.getElementById("walletTitle")
-  if(title){
-    title.innerText = name
-  }
+ const title = document.getElementById("walletTitle")
+if(title){
+  title.innerText = window.getDisplayName(window.wallet)
+}
 
-  // -------- NAV PROFILE BUTTON --------
-  const nav = document.querySelector(".nav-links") || document.querySelector(".nav div:last-child")
+// -------- NAV PROFILE BUTTON --------
+const nav = document.querySelector(".nav-links") || document.querySelector(".nav div:last-child")
 
-  if(nav){
+if(nav){
 
-    let el = document.getElementById("navProfile")
+  let el = document.getElementById("navProfile")
 
-    if(!el){
-      el = document.createElement("span")
-      el.id = "navProfile"
-      el.className = "profile-link"
-      el.style.marginLeft = "20px"
-      el.style.cursor = "pointer"
+  if(!el){
+    el = document.createElement("span")
+    el.id = "navProfile"
+    el.className = "profile-link"
+    el.style.marginLeft = "20px"
+    el.style.cursor = "pointer"
 
-      el.onclick = () => {
-        window.location = "/profile?wallet=" + window.wallet
-      }
-
-      nav.appendChild(el)
+    el.onclick = () => {
+      window.location = "/profile?wallet=" + window.wallet
     }
 
-    el.innerText = name
+    nav.appendChild(el)
   }
+
+  // 🔥 FORCE UPDATE EVERY TIME
+  el.textContent = window.getDisplayName(window.wallet)
+}
 
 }

@@ -208,11 +208,18 @@ async function saveProfile(){
     })
   })
 
-  await new Promise(r=>setTimeout(r,1200))
+  // ⏱ give GitHub time to update
+  await new Promise(r=>setTimeout(r,1500))
 
-  await loadBackend()
+  // 🔥 FORCE NEW BACKEND DATA
+  await window.loadBackend()
+
+  // 🔥 FORCE UI UPDATE EVERYWHERE
+  window.updateWalletUI()
+
+  // 🔥 RE-RENDER PROFILE PAGE
   render()
-  updateWalletUI()
+
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
