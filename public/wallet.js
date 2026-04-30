@@ -67,9 +67,14 @@ window.connectWallet = async function(){
 
     localStorage.setItem("wallet", window.wallet)
 
+    // 🔥 load fresh backend FIRST
     await window.loadBackend()
     await loadWalletData()
-    updateWalletUI()
+
+    // 🔥 slight delay ensures data is ready before UI
+    setTimeout(() => {
+      updateWalletUI()
+    }, 50)
 
   }catch(err){
     console.log("connect error", err)
@@ -101,7 +106,10 @@ window.autoConnect = async function(){
     await loadWalletData()
   }
 
-  updateWalletUI()
+  // 🔥 ensure UI updates AFTER backend loads
+  setTimeout(() => {
+    updateWalletUI()
+  }, 50)
 
 }
 
@@ -173,14 +181,13 @@ function updateWalletUI(){
       nav.appendChild(el)
     }
 
-    // 🔥 ALWAYS UPDATE NAME (fixes stale username)
-   const newName = window.getDisplayName(window.wallet)
+    // 🔥 FORCE RE-RENDER NAME (fixes stuck username bug)
+    const newName = window.getDisplayName(window.wallet)
 
-// force change even if same node
-el.textContent = ""
-setTimeout(()=>{
-  el.textContent = newName
-}, 10)
+    el.textContent = ""
+    requestAnimationFrame(() => {
+      el.textContent = newName
+    })
 
   }
 
