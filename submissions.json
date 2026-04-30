@@ -4,12 +4,17 @@
   "voteIndex": {},
   "submissions": {},
   "manifesto": [],
-  "lastUpdated": "2026-04-30T13:12:25.634Z",
+  "lastUpdated": "2026-04-30T13:12:50.123Z",
   "profiles": {
     "F1tJ3nPn5UKNX7s2ApXtgf7MSaDXhaG3CLWL4j5j4ojj": {
       "username": "cryptogatsu",
       "bio": "",
       "updated": "2026-04-30T13:12:25.634Z"
+    },
+    "3pPmqYbhFKs6bkuzpuS5tPbYZEFhVk4cuaVRmoCm2tab": {
+      "username": "test",
+      "bio": "",
+      "updated": "2026-04-30T13:12:50.123Z"
     }
   }
 }
