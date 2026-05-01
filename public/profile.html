@@ -194,7 +194,7 @@ async function saveProfile(){
   const bio = document.getElementById("bio").value
 
   // =========================
-  // 🔥 INSTANT UI UPDATE (KEY FIX)
+  // 🔥 INSTANT LOCAL UPDATE
   // =========================
   if(!window.backendData){
     window.backendData = { profiles:{} }
@@ -210,14 +210,14 @@ async function saveProfile(){
     updated: new Date().toISOString()
   }
 
-  // instant UI refresh
+  // 🔥 update UI instantly
   render()
   updateWalletUI()
 
   status.innerText = "saved ✓"
 
   // =========================
-  // 🔥 BACKGROUND SYNC
+  // 🔥 BACKGROUND SAVE ONLY
   // =========================
   try{
 
@@ -243,16 +243,8 @@ async function saveProfile(){
       })
     })
 
-    // 🔥 FORCE GLOBAL SYNC AFTER SAVE
-setTimeout(async () => {
-
-  await window.loadBackend()   // pull fresh GitHub data
-  updateWalletUI()             // update nav everywhere
-
-}, 1000)
-
   }catch(err){
-    console.log("background save failed", err)
+    console.log("save error", err)
     status.innerText = "saved locally (sync pending)"
   }
 
