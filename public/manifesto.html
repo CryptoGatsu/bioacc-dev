@@ -177,7 +177,9 @@ bio/acc is a decentralized movement accelerating biotechnology.
 
 async function loadSignatures(){
 
-  
+  // 🔥 FIX: LOAD BACKEND DATA
+  const res = await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
+  window.backendData = await res.json()
 
   const sigs = window.backendData.manifesto || []
 
@@ -186,12 +188,23 @@ async function loadSignatures(){
 
   list.innerHTML=""
 
-  sigs.forEach(sig=>{
+  // 🔥 FIX: ASYNC USERNAME RESOLUTION
+  for(const sig of sigs){
+
+    let name = sig.wallet.slice(0,4)+"..."+sig.wallet.slice(-4)
+
+    try{
+      const profile = await window.getProfile(sig.wallet)
+      if(profile?.username){
+        name = profile.username
+      }
+    }catch{}
+
     const el=document.createElement("div")
     el.className="signature"
-    el.innerText=`> ${getDisplayName(sig.wallet)} — ${sig.note}`
+    el.innerText=`> ${name} — ${sig.note}`
     list.appendChild(el)
-  })
+  }
 
   count.innerText=sigs.length+" people have signed the bio/acc manifesto"
 }
