@@ -5,7 +5,7 @@ const SUPABASE_URL = "YOUR_SUPABASE_URL"
 const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY"
 
 // ========================
-// GLOBAL PROFILE LOADER
+// GLOBAL PROFILE LOADER (DIRECT SUPABASE)
 // ========================
 window.loadProfile = async function(wallet){
 
@@ -28,6 +28,48 @@ window.loadProfile = async function(wallet){
 }
 
 // ========================
+// GLOBAL PROFILE CACHE + FETCH (USED EVERYWHERE)
+// ========================
+window.profileCache = {}
+
+window.getProfile = async function(wallet){
+
+  if(window.profileCache[wallet]){
+    return window.profileCache[wallet]
+  }
+
+  try{
+    const res = await fetch(`/api/profile?wallet=${wallet}`)
+    const data = await res.json()
+
+    const profile = data || {}
+
+    window.profileCache[wallet] = profile
+    return profile
+
+  }catch(err){
+    console.log("getProfile error", err)
+    return {}
+  }
+}
+
+// ========================
+// DISPLAY NAME (ASYNC SAFE)
+// ========================
+window.getDisplayName = async function(wallet){
+
+  if(!wallet) return ""
+
+  const profile = await window.getProfile(wallet)
+
+  if(profile?.username){
+    return profile.username
+  }
+
+  return wallet.slice(0,4) + "..." + wallet.slice(-4)
+}
+
+// ========================
 // INIT
 // ========================
 let profileReady = false
@@ -39,16 +81,16 @@ async function initProfile(){
 
   profileReady = true
 
-  // 🔥 LOAD PROFILE FROM SUPABASE
-  const profile = await window.loadProfile(window.wallet)
+  // 🔥 ALWAYS LOAD FRESH PROFILE
+  const profile = await window.getProfile(window.wallet)
 
-  // 🔥 STORE LOCALLY (used everywhere)
+  // 🔥 STORE IN GLOBAL BACKEND (optional but useful)
   if(!window.backendData) window.backendData = { profiles:{} }
-  if(profile){
-    window.backendData.profiles[window.wallet] = profile
-  }
+  window.backendData.profiles[window.wallet] = profile
 
-  // 🔥 CREATE PROFILE BUTTON IN NAV
+  // ========================
+  // NAV PROFILE BUTTON
+  // ========================
   const nav = document.querySelector(".nav div:last-child") || document.querySelector(".nav-links")
 
   if(!nav) return
@@ -64,10 +106,14 @@ async function initProfile(){
     nav.appendChild(btn)
   }
 
-  // 🔥 SET NAME (LIVE)
-  btn.innerText = getDisplayName(window.wallet)
+  // 🔥 ASYNC NAME SET
+  window.getDisplayName(window.wallet).then(name => {
+    btn.innerText = name
+  })
 
-  // 🔥 TOOLTIP
+  // ========================
+  // TOOLTIP
+  // ========================
   let tooltip = document.getElementById("profileTooltip")
 
   if(!tooltip){
@@ -85,44 +131,21 @@ async function initProfile(){
     document.body.appendChild(tooltip)
   }
 
-  btn.onclick = () => {
+  btn.onclick = async () => {
     tooltip.style.display = tooltip.style.display === "block" ? "none" : "block"
-    renderProfile(tooltip)
+    await renderProfile(tooltip)
   }
 
 }
 
 // ========================
-// DISPLAY NAME (GLOBAL)
+// TOOLTIP RENDER (LIVE DATA)
 // ========================
-window.profileCache = {}
-
-window.getProfile = async function(wallet){
-
-  if(window.profileCache[wallet]){
-    return window.profileCache[wallet]
-  }
-
-  try{
-    const res = await fetch(`/api/profile?wallet=${wallet}`)
-    const data = await res.json()
-
-    window.profileCache[wallet] = data || {}
-    return data || {}
-
-  }catch{
-    return {}
-  }
-}
-
-// ========================
-// TOOLTIP RENDER
-// ========================
-function renderProfile(el){
+async function renderProfile(el){
 
   if(!window.wallet) return
 
-  const profile = window.backendData?.profiles?.[window.wallet] || {}
+  const profile = await window.getProfile(window.wallet)
 
   const short = window.wallet.slice(0,4)+"..."+window.wallet.slice(-4)
 
@@ -138,6 +161,33 @@ function renderProfile(el){
   → full profile
   </div>
   `
+}
+
+// ========================
+// FORCE REFRESH (IMPORTANT)
+// ========================
+window.refreshProfileUI = async function(wallet){
+
+  if(!wallet) return
+
+  // 🔥 CLEAR CACHE
+  delete window.profileCache[wallet]
+
+  // 🔥 RELOAD
+  const profile = await window.getProfile(wallet)
+
+  // 🔥 UPDATE NAV
+  const btn = document.getElementById("navProfile")
+  if(btn){
+    btn.innerText = profile.username || wallet.slice(0,4)+"..."+wallet.slice(-4)
+  }
+
+  // 🔥 UPDATE TITLE IF EXISTS
+  const title = document.getElementById("walletTitle")
+  if(title){
+    title.innerText = profile.username || wallet.slice(0,4)+"..."+wallet.slice(-4)
+  }
+
 }
 
 // ========================

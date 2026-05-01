@@ -173,6 +173,8 @@ async function render(){
 
 async function saveProfile(){
 
+  await window.refreshProfileUI(wallet)
+
   if(!window.wallet){
     alert("connect wallet")
     return
