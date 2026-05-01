@@ -151,33 +151,26 @@ async function load(){
     viewingWallet = window.wallet
   }
 
-  render()
+  await render()
   updateWalletUI()
 }
 
-function render(){
+async function render(){
 
   if(!viewingWallet){
     document.getElementById("walletTitle").innerText = "no wallet"
     return
   }
 
-  const profile = window.backendData?.profiles?.[viewingWallet] || {}
+  const profile = await loadProfile(viewingWallet)
+
+  if(!window.backendData) window.backendData = { profiles:{} }
+  window.backendData.profiles[viewingWallet] = profile
 
   const name = profile.username || viewingWallet.slice(0,4)+"..."+viewingWallet.slice(-4)
 
   document.getElementById("walletTitle").innerText = name
   document.getElementById("profileBio").innerText = profile.bio || ""
-
-  // 🔥 ONLY SET INPUTS ONCE (prevents overwrite bug)
-  if(!inputsInitialized && viewingWallet === window.wallet){
-
-    document.getElementById("username").value = profile.username || ""
-    document.getElementById("bio").value = profile.bio || ""
-
-    inputsInitialized = true
-  }
-
 }
 
 async function saveProfile(){
@@ -193,16 +186,9 @@ async function saveProfile(){
   const username = document.getElementById("username").value
   const bio = document.getElementById("bio").value
 
-  // =========================
-  // 🔥 INSTANT LOCAL UPDATE
-  // =========================
-  if(!window.backendData){
-    window.backendData = { profiles:{} }
-  }
-
-  if(!window.backendData.profiles){
-    window.backendData.profiles = {}
-  }
+  // ⚡ instant UI update
+  if(!window.backendData) window.backendData = { profiles:{} }
+  if(!window.backendData.profiles) window.backendData.profiles = {}
 
   window.backendData.profiles[window.wallet] = {
     username,
@@ -210,52 +196,39 @@ async function saveProfile(){
     updated: new Date().toISOString()
   }
 
-  // 🔥 update UI instantly
   render()
   updateWalletUI()
 
   status.innerText = "saved ✓"
 
-  // =========================
-  // 🔥 BACKGROUND SAVE ONLY
-  // =========================
-  try{
-
-    const timestamp = Date.now()
-    const message = `profile:${window.wallet}:${timestamp}`
-
-    const encoded = new TextEncoder().encode(message)
-    const signed = await window.solana.signMessage(encoded,"utf8")
-
-    await fetch("/api/update",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        action:"saveProfile",
-        data:{
-          wallet: window.wallet,
-          username,
-          bio,
-          timestamp,
-          signature:Array.from(signed.signature),
-          message
-        }
-      })
+  // 🔥 background save to Supabase
+  await fetch("/api/profile-save", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      wallet: window.wallet,
+      username,
+      bio
     })
+  })
 
-  }catch(err){
-    console.log("save error", err)
-    status.innerText = "saved locally (sync pending)"
-  }
-
-  setTimeout(()=>{
-    status.innerText = ""
-  },2000)
+  setTimeout(()=> status.innerText = "", 2000)
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
+
   await autoConnect()
-  await load()
+
+  if(window.wallet){
+    const profile = await loadProfile(window.wallet)
+
+    if(!window.backendData) window.backendData = { profiles:{} }
+    window.backendData.profiles[window.wallet] = profile
+  }
+
+  render()
+  updateWalletUI()
+
 })
 
 </script>

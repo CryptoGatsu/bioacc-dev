@@ -10,6 +10,14 @@ if(!wallet || !backendData) return
 
 profileReady = true
 
+async function loadProfile(wallet){
+
+  const res = await fetch(`/api/profile?wallet=${wallet}`)
+  const profile = await res.json()
+
+  return profile || {}
+}
+
 // 🔥 CREATE PROFILE BUTTON IN NAV
 const nav = document.querySelector(".nav div:last-child")
 
