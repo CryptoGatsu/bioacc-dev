@@ -414,6 +414,23 @@ async function submitProject(){
     })
   })
 
+  function toggleConfirm(){
+
+  const input = document.getElementById("confirm")
+  const box = document.getElementById("confirmBox")
+
+  input.checked = !input.checked
+
+  if(input.checked){
+    box.classList.add("active")
+    box.innerHTML = "✔ confirmed (14+ days)"
+  } else {
+    box.classList.remove("active")
+    box.innerHTML = "✔ confirm 14+ days"
+  }
+
+}
+
   document.getElementById("status").innerText="submitted ✅"
 
   loadProjects()
