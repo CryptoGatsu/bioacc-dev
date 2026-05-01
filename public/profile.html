@@ -142,8 +142,6 @@ viewingWallet = params.get("wallet")
 
 async function load(){
 
-  await loadBackend()
-
   window.wallet = localStorage.getItem("wallet")
 
   // fallback (important)
@@ -180,39 +178,38 @@ async function saveProfile(){
     return
   }
 
-  const status = document.getElementById("saveStatus")
-  status.innerText = "saving..."
-
   const username = document.getElementById("username").value
   const bio = document.getElementById("bio").value
 
-  // ⚡ instant UI update
-  if(!window.backendData) window.backendData = { profiles:{} }
-  if(!window.backendData.profiles) window.backendData.profiles = {}
+  const timestamp = Date.now()
+  const message = `profile:${window.wallet}:${timestamp}`
 
-  window.backendData.profiles[window.wallet] = {
-    username,
-    bio,
-    updated: new Date().toISOString()
-  }
+  const encoded = new TextEncoder().encode(message)
 
-  render()
-  updateWalletUI()
+  // 🔥 THIS IS WHAT YOU LOST
+  const signed = await window.solana.signMessage(encoded, "utf8")
 
-  status.innerText = "saved ✓"
-
-  // 🔥 background save to Supabase
-  await fetch("/api/profile-save", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
+  // 🔥 SEND TO SUPABASE API (NOT GITHUB)
+  await fetch("/api/profile", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
       wallet: window.wallet,
       username,
-      bio
+      bio,
+      signature: Array.from(signed.signature),
+      message
     })
   })
 
-  setTimeout(()=> status.innerText = "", 2000)
+  // 🔥 INSTANT UI UPDATE (NO DELAY)
+  const profile = { username, bio }
+
+  if(!window.backendData) window.backendData = { profiles:{} }
+  window.backendData.profiles[window.wallet] = profile
+
+  render()
+  updateWalletUI()
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
