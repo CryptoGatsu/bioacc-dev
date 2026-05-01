@@ -29,20 +29,33 @@ window.loadBackend = async function(){
 }
 
 // ========================
+// FORCE CLEAR PROFILE CACHE (🔥 IMPORTANT)
+// ========================
+window.clearProfileCache = function(wallet){
+  if(!wallet) return
+  delete window.profileCache[wallet]
+}
+
+// ========================
 // LOAD PROFILE (SUPABASE)
 // ========================
 window.getProfile = async function(wallet){
 
+  if(!wallet) return {}
+
+  // 🔥 ALWAYS REVALIDATE IF CALLED AFTER SAVE
   if(window.profileCache[wallet]){
     return window.profileCache[wallet]
   }
 
   try{
-    const res = await fetch(`/api/profile?wallet=${wallet}`)
+    const res = await fetch(`/api/profile?wallet=${wallet}&t=${Date.now()}`) // 🔥 CACHE BUST
     const data = await res.json()
 
-    window.profileCache[wallet] = data || {}
-    return data || {}
+    const profile = data || {}
+
+    window.profileCache[wallet] = profile
+    return profile
 
   }catch(err){
     console.log("profile load error", err)
@@ -54,6 +67,8 @@ window.getProfile = async function(wallet){
 // DISPLAY NAME (ASYNC)
 // ========================
 window.getDisplayName = async function(wallet){
+
+  if(!wallet) return ""
 
   const profile = await window.getProfile(wallet)
 
@@ -84,7 +99,7 @@ window.connectWallet = async function(){
 
     await window.loadBackend()
     await loadWalletData()
-    await updateWalletUI()
+    await window.updateWalletUI(true) // 🔥 force refresh
 
   }catch(err){
     console.log("connect error", err)
@@ -116,7 +131,7 @@ window.autoConnect = async function(){
     await loadWalletData()
   }
 
-  await updateWalletUI()
+  await window.updateWalletUI(true) // 🔥 force refresh
 }
 
 // ========================
@@ -140,15 +155,20 @@ async function loadWalletData(){
 }
 
 // ========================
-// UI UPDATE (FIXED ASYNC)
+// UI UPDATE (FIXED)
 // ========================
-window.updateWalletUI = async function(){
+window.updateWalletUI = async function(forceFresh = false){
 
   if(!window.wallet){
     window.wallet = localStorage.getItem("wallet")
   }
 
   if(!window.wallet) return
+
+  // 🔥 FORCE REFRESH AFTER SAVE
+  if(forceFresh){
+    window.clearProfileCache(window.wallet)
+  }
 
   const name = await window.getDisplayName(window.wallet)
 
@@ -159,7 +179,7 @@ window.updateWalletUI = async function(){
       `wallet: ${name} | tokens: ${Math.floor(window.tokenBalance)} | votes: ${window.voteBank}`
   }
 
-  // -------- PROFILE PAGE TITLE --------
+  // -------- PROFILE TITLE --------
   const title = document.getElementById("walletTitle")
   if(title){
     title.innerText = name

@@ -206,7 +206,7 @@ async function saveProfile(){
   }
 
   // 🔥 REFRESH UI (THIS WAS MISSING)
-  await window.refreshProfileUI(window.wallet)
+  await window.updateWalletUI(true)
 
   // 🔥 RE-RENDER PAGE
   await render()
