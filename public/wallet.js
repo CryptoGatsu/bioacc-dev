@@ -1,18 +1,3 @@
-window.loadProfile = async function(wallet){
-
-  try{
-    const res = await fetch(`/api/profile?wallet=${wallet}`)
-    const data = await res.json()
-    return data || {}
-  }catch(err){
-    console.log("loadProfile error", err)
-    return {}
-  }
-
-}
-
-
-
 // ========================
 // GLOBAL STATE
 // ========================
@@ -20,9 +5,10 @@ window.wallet = null
 window.tokenBalance = 0
 window.voteBank = 0
 window.backendData = null
+window.profileCache = {}
 
 // ========================
-// LOAD BACKEND (GLOBAL)
+// LOAD BACKEND (PROJECT DATA ONLY)
 // ========================
 window.loadBackend = async function(){
 
@@ -43,10 +29,8 @@ window.loadBackend = async function(){
 }
 
 // ========================
-// DISPLAY NAME (GLOBAL)
+// LOAD PROFILE (SUPABASE)
 // ========================
-window.profileCache = {}
-
 window.getProfile = async function(wallet){
 
   if(window.profileCache[wallet]){
@@ -60,9 +44,24 @@ window.getProfile = async function(wallet){
     window.profileCache[wallet] = data || {}
     return data || {}
 
-  }catch{
+  }catch(err){
+    console.log("profile load error", err)
     return {}
   }
+}
+
+// ========================
+// DISPLAY NAME (ASYNC)
+// ========================
+window.getDisplayName = async function(wallet){
+
+  const profile = await window.getProfile(wallet)
+
+  if(profile && profile.username){
+    return profile.username
+  }
+
+  return wallet.slice(0,4) + "..." + wallet.slice(-4)
 }
 
 // ========================
@@ -85,7 +84,7 @@ window.connectWallet = async function(){
 
     await window.loadBackend()
     await loadWalletData()
-    updateWalletUI()
+    await updateWalletUI()
 
   }catch(err){
     console.log("connect error", err)
@@ -117,16 +116,11 @@ window.autoConnect = async function(){
     await loadWalletData()
   }
 
-  updateWalletUI()
-  const title = document.getElementById("walletTitle")
-if(title){
-  title.innerText = window.getDisplayName(window.wallet)
-}
-
+  await updateWalletUI()
 }
 
 // ========================
-// LOAD WALLET DATA
+// LOAD TOKEN DATA
 // ========================
 async function loadWalletData(){
 
@@ -146,9 +140,9 @@ async function loadWalletData(){
 }
 
 // ========================
-// UI UPDATE (ALL PAGES)
+// UI UPDATE (FIXED ASYNC)
 // ========================
-window.updateWalletUI = function(){
+window.updateWalletUI = async function(){
 
   if(!window.wallet){
     window.wallet = localStorage.getItem("wallet")
@@ -156,9 +150,7 @@ window.updateWalletUI = function(){
 
   if(!window.wallet) return
 
-window.getDisplayName(window.wallet).then(name => {
-  el.textContent = name
-})
+  const name = await window.getDisplayName(window.wallet)
 
   // -------- STATUS TEXT --------
   const status = document.getElementById("walletStatus")
@@ -168,34 +160,33 @@ window.getDisplayName(window.wallet).then(name => {
   }
 
   // -------- PROFILE PAGE TITLE --------
- const title = document.getElementById("walletTitle")
-if(title){
-  title.innerText = window.getDisplayName(window.wallet)
-}
-
-// -------- NAV PROFILE BUTTON --------
-const nav = document.querySelector(".nav-links") || document.querySelector(".nav div:last-child")
-
-if(nav){
-
-  let el = document.getElementById("navProfile")
-
-  if(!el){
-    el = document.createElement("span")
-    el.id = "navProfile"
-    el.className = "profile-link"
-    el.style.marginLeft = "20px"
-    el.style.cursor = "pointer"
-
-    el.onclick = () => {
-      window.location = "/profile?wallet=" + window.wallet
-    }
-
-    nav.appendChild(el)
+  const title = document.getElementById("walletTitle")
+  if(title){
+    title.innerText = name
   }
 
-  // 🔥 FORCE UPDATE EVERY TIME
-  el.textContent = window.getDisplayName(window.wallet)
-}
+  // -------- NAV PROFILE BUTTON --------
+  const nav = document.querySelector(".nav-links") || document.querySelector(".nav div:last-child")
+
+  if(nav){
+
+    let el = document.getElementById("navProfile")
+
+    if(!el){
+      el = document.createElement("span")
+      el.id = "navProfile"
+      el.className = "profile-link"
+      el.style.marginLeft = "20px"
+      el.style.cursor = "pointer"
+
+      el.onclick = () => {
+        window.location = "/profile?wallet=" + window.wallet
+      }
+
+      nav.appendChild(el)
+    }
+
+    el.textContent = name
+  }
 
 }
