@@ -243,6 +243,14 @@ async function saveProfile(){
       })
     })
 
+    // 🔥 FORCE GLOBAL SYNC AFTER SAVE
+setTimeout(async () => {
+
+  await window.loadBackend()   // pull fresh GitHub data
+  updateWalletUI()             // update nav everywhere
+
+}, 1000)
+
   }catch(err){
     console.log("background save failed", err)
     status.innerText = "saved locally (sync pending)"
