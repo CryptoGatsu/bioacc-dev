@@ -181,13 +181,35 @@ async function saveProfile(){
   const username = document.getElementById("username").value
   const bio = document.getElementById("bio").value
 
+  // =========================
+  // 🔥 INSTANT UI UPDATE
+  // =========================
+  if(!window.profileCache) window.profileCache = {}
+
+  window.profileCache[window.wallet] = {
+    username,
+    bio
+  }
+
+  // update visible UI immediately
+  document.getElementById("walletTitle").innerText =
+    username || window.wallet.slice(0,4)+"..."+window.wallet.slice(-4)
+
+  document.getElementById("profileBio").innerText = bio || ""
+
+  await window.updateWalletUI(true)
+
+  document.getElementById("saveStatus").innerText = "saving..."
+
+  // =========================
+  // 🔥 BACKEND SAVE
+  // =========================
   const timestamp = Date.now()
   const message = `profile:${window.wallet}:${timestamp}`
   const encoded = new TextEncoder().encode(message)
 
   const signed = await window.solana.signMessage(encoded, "utf8")
 
-  // SAVE TO API
   await fetch("/api/profile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -200,21 +222,8 @@ async function saveProfile(){
     })
   })
 
-  // 🔥 CLEAR CACHE
-  if(window.profileCache){
-    delete window.profileCache[window.wallet]
-  }
-
-  // 🔥 REFRESH UI (THIS WAS MISSING)
-  await window.updateWalletUI(true)
-
-  // 🔥 RE-RENDER PAGE
-  await render()
-
-  // 🔥 NAV UPDATE
-  updateWalletUI()
-
   document.getElementById("saveStatus").innerText = "saved ✓"
+
 }
 
 // ========================
