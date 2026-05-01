@@ -109,6 +109,7 @@ text-decoration:underline;
 </div>
 
 <button onclick="saveProfile()">save profile</button>
+<div id="saveStatus" style="margin-top:10px;color:#7CFF3A;font-size:14px;"></div>
 
 <div class="section">
 <h2>projects</h2>
@@ -157,6 +158,7 @@ function render(){
 
   const name = profile.username || viewingWallet.slice(0,4)+"..."+viewingWallet.slice(-4)
 
+  // 🔥 ALWAYS USE viewingWallet
   document.getElementById("walletTitle").innerText = name
 
   // BIO
@@ -171,8 +173,11 @@ function render(){
 
   bioEl.innerText = profile.bio || ""
 
-  document.getElementById("username").value = profile.username || ""
-  document.getElementById("bio").value = profile.bio || ""
+  // 🔥 ONLY fill inputs if YOU OWN PROFILE
+  if(viewingWallet === window.wallet){
+    document.getElementById("username").value = profile.username || ""
+    document.getElementById("bio").value = profile.bio || ""
+  }
 
 }
 
@@ -182,6 +187,9 @@ async function saveProfile(){
     alert("connect wallet")
     return
   }
+
+  const status = document.getElementById("saveStatus")
+  status.innerText = "saving..."
 
   const username = document.getElementById("username").value
   const bio = document.getElementById("bio").value
@@ -208,18 +216,23 @@ async function saveProfile(){
     })
   })
 
-  // ⏱ give GitHub time to update
+  // wait for GitHub update
   await new Promise(r=>setTimeout(r,1500))
 
-  // 🔥 FORCE NEW BACKEND DATA
-  await window.loadBackend()
+  // 🔥 reload backend
+  await loadBackend()
 
-  // 🔥 FORCE UI UPDATE EVERYWHERE
-  window.updateWalletUI()
-
-  // 🔥 RE-RENDER PROFILE PAGE
+  // 🔥 re-render using CORRECT wallet
   render()
 
+  // 🔥 update nav + UI
+  updateWalletUI()
+
+  status.innerText = "profile saved ✓"
+
+  setTimeout(()=>{
+    status.innerText = ""
+  },2000)
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
