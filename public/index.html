@@ -268,24 +268,32 @@ bio/acc is a movement accelerating biotechnology.
 
 </div>
 
-<script src="wallet.js"></script>
+<!-- ONLY FIXES APPLIED — NOTHING REMOVED -->
+
+<script src="/wallet.js"></script>
 <script src="/profile.js"></script>
 
 <script>
 
-function profileLink(wallet){
+// 🔥 FIX: ASYNC PROFILE LINK
+async function profileLink(wallet){
 
-const name = getDisplayName(wallet)
+  let name = wallet.slice(0,4)+"..."+wallet.slice(-4)
 
-return `<span class="profile-link" onclick="goProfile('${wallet}')">${name}</span>`
+  try{
+    const profile = await window.getProfile(wallet)
+    if(profile?.username){
+      name = profile.username
+    }
+  }catch{}
 
+  return `<span class="profile-link" onclick="goProfile('${wallet}')">${name}</span>`
 }
 
 function goProfile(wallet){
 window.location = "/profile?wallet=" + wallet
 }
 
-  
 
 // MARKET CAP
 async function refreshMarketCap(){
@@ -304,7 +312,8 @@ status.innerText="market data unavailable"
 }
 }
 
-// 🔥 STATS
+
+// 🔥 STATS (UNCHANGED — GitHub source)
 async function loadStats(){
 try{
 const res=await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
@@ -324,8 +333,10 @@ console.log("stats error",err)
 }
 }
 
+
 // DELAY
 function delay(ms){return new Promise(r=>setTimeout(r,ms))}
+
 
 // TYPE LINE
 async function typeLine(container,text){
@@ -373,16 +384,17 @@ feed.innerHTML="[error] intelligence network offline"
 }
 }
 
+
+// INIT
 window.addEventListener("DOMContentLoaded", async () => {
 
-  await autoConnect()   // THEN wallet
+  await autoConnect() // wallet init FIRST
 
   loadResearch()
   refreshMarketCap()
   loadStats()
 
 })
-
 </script>
 
 </body>
