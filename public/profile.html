@@ -98,6 +98,8 @@ text-decoration:underline;
 
 <h1 id="walletTitle">wallet</h1>
 
+<div id="profileBio" style="color:#777;margin-top:10px;"></div>
+
 <div class="section">
 <b>username</b>
 <input id="username">
@@ -133,6 +135,7 @@ text-decoration:underline;
 <script>
 
 let viewingWallet = null
+let inputsInitialized = false
 
 const params = new URLSearchParams(window.location.search)
 viewingWallet = params.get("wallet")
@@ -142,6 +145,11 @@ async function load(){
   await loadBackend()
 
   window.wallet = localStorage.getItem("wallet")
+
+  // fallback (important)
+  if(!viewingWallet){
+    viewingWallet = window.wallet
+  }
 
   render()
   updateWalletUI()
@@ -158,25 +166,16 @@ function render(){
 
   const name = profile.username || viewingWallet.slice(0,4)+"..."+viewingWallet.slice(-4)
 
-  // 🔥 ALWAYS USE viewingWallet
   document.getElementById("walletTitle").innerText = name
+  document.getElementById("profileBio").innerText = profile.bio || ""
 
-  // BIO
-  let bioEl = document.getElementById("profileBio")
-  if(!bioEl){
-    bioEl = document.createElement("div")
-    bioEl.id = "profileBio"
-    bioEl.style.color = "#777"
-    bioEl.style.marginTop = "10px"
-    document.getElementById("walletTitle").after(bioEl)
-  }
+  // 🔥 ONLY SET INPUTS ONCE (prevents overwrite bug)
+  if(!inputsInitialized && viewingWallet === window.wallet){
 
-  bioEl.innerText = profile.bio || ""
-
-  // 🔥 ONLY fill inputs if YOU OWN PROFILE
-  if(viewingWallet === window.wallet){
     document.getElementById("username").value = profile.username || ""
     document.getElementById("bio").value = profile.bio || ""
+
+    inputsInitialized = true
   }
 
 }
@@ -216,16 +215,17 @@ async function saveProfile(){
     })
   })
 
-  // wait for GitHub update
+  // wait for GitHub propagation
   await new Promise(r=>setTimeout(r,1500))
 
-  // 🔥 reload backend
+  // 🔥 force fresh backend
   await loadBackend()
 
-  // 🔥 re-render using CORRECT wallet
-  render()
+  // 🔥 reset input lock so new data loads
+  inputsInitialized = false
 
-  // 🔥 update nav + UI
+  // 🔥 re-render everything
+  render()
   updateWalletUI()
 
   status.innerText = "profile saved ✓"
