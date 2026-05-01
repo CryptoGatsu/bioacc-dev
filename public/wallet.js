@@ -1,3 +1,18 @@
+window.loadProfile = async function(wallet){
+
+  try{
+    const res = await fetch(`/api/profile?wallet=${wallet}`)
+    const data = await res.json()
+    return data || {}
+  }catch(err){
+    console.log("loadProfile error", err)
+    return {}
+  }
+
+}
+
+
+
 // ========================
 // GLOBAL STATE
 // ========================
