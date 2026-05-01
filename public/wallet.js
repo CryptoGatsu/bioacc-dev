@@ -45,15 +45,24 @@ window.loadBackend = async function(){
 // ========================
 // DISPLAY NAME (GLOBAL)
 // ========================
-window.getDisplayName = function(w){
+window.profileCache = {}
 
-  if(!w) return ""
+window.getProfile = async function(wallet){
 
-  if(window.backendData?.profiles?.[w]?.username){
-    return window.backendData.profiles[w].username
+  if(window.profileCache[wallet]){
+    return window.profileCache[wallet]
   }
 
-  return w.slice(0,4) + "..." + w.slice(-4)
+  try{
+    const res = await fetch(`/api/profile?wallet=${wallet}`)
+    const data = await res.json()
+
+    window.profileCache[wallet] = data || {}
+    return data || {}
+
+  }catch{
+    return {}
+  }
 }
 
 // ========================
@@ -147,7 +156,9 @@ window.updateWalletUI = function(){
 
   if(!window.wallet) return
 
-  const name = window.getDisplayName(window.wallet)
+window.getDisplayName(window.wallet).then(name => {
+  el.textContent = name
+})
 
   // -------- STATUS TEXT --------
   const status = document.getElementById("walletStatus")

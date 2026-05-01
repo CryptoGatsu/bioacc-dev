@@ -95,15 +95,24 @@ async function initProfile(){
 // ========================
 // DISPLAY NAME (GLOBAL)
 // ========================
-window.getDisplayName = function(w){
+window.profileCache = {}
 
-  const profile = window.backendData?.profiles?.[w]
+window.getProfile = async function(wallet){
 
-  if(profile && profile.username){
-    return profile.username
+  if(window.profileCache[wallet]){
+    return window.profileCache[wallet]
   }
 
-  return w.slice(0,4) + "..." + w.slice(-4)
+  try{
+    const res = await fetch(`/api/profile?wallet=${wallet}`)
+    const data = await res.json()
+
+    window.profileCache[wallet] = data || {}
+    return data || {}
+
+  }catch{
+    return {}
+  }
 }
 
 // ========================

@@ -160,7 +160,7 @@ async function render(){
     return
   }
 
-  const profile = await loadProfile(viewingWallet)
+ const profile = await window.getProfile(viewingWallet)
 
   if(!window.backendData) window.backendData = { profiles:{} }
   window.backendData.profiles[viewingWallet] = profile
@@ -217,7 +217,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   await autoConnect()
 
   if(window.wallet){
-    const profile = await loadProfile(window.wallet)
+    const profile = await window.getProfile(viewingWallet)
 
     if(!window.backendData) window.backendData = { profiles:{} }
     window.backendData.profiles[window.wallet] = profile
