@@ -156,16 +156,12 @@ async function render(){
     profile.username ||
     viewingWallet.slice(0,4)+"..."+viewingWallet.slice(-4)
 
-  // TITLE
   document.getElementById("walletTitle").innerText = name
-
-  // BIO DISPLAY
   document.getElementById("profileBio").innerText = profile.bio || ""
 
-  // INPUTS (🔥 IMPORTANT FIX)
+  // ALWAYS sync inputs
   document.getElementById("username").value = profile.username || ""
   document.getElementById("bio").value = profile.bio || ""
-
 }
 
 // ========================
@@ -181,28 +177,10 @@ async function saveProfile(){
   const username = document.getElementById("username").value
   const bio = document.getElementById("bio").value
 
-  // =========================
-  // 🔥 INSTANT UI UPDATE
-  // =========================
-  if(!window.profileCache) window.profileCache = {}
-
-  window.profileCache[window.wallet] = {
-    username,
-    bio
-  }
-
-  // update visible UI immediately
-  document.getElementById("walletTitle").innerText =
-    username || window.wallet.slice(0,4)+"..."+window.wallet.slice(-4)
-
-  document.getElementById("profileBio").innerText = bio || ""
-
-  await window.updateWalletUI(true)
-
   document.getElementById("saveStatus").innerText = "saving..."
 
   // =========================
-  // 🔥 BACKEND SAVE
+  // SIGN
   // =========================
   const timestamp = Date.now()
   const message = `profile:${window.wallet}:${timestamp}`
@@ -210,6 +188,9 @@ async function saveProfile(){
 
   const signed = await window.solana.signMessage(encoded, "utf8")
 
+  // =========================
+  // SAVE TO BACKEND
+  // =========================
   await fetch("/api/profile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -222,8 +203,32 @@ async function saveProfile(){
     })
   })
 
-  document.getElementById("saveStatus").innerText = "saved ✓"
+  // =========================
+  // 🔥 HARD RESET CACHE
+  // =========================
+  delete window.profileCache[window.wallet]
 
+  // =========================
+  // 🔥 FORCE FRESH FETCH
+  // =========================
+  const fresh = await window.getProfile(window.wallet)
+
+  // =========================
+  // 🔥 FORCE UI UPDATE
+  // =========================
+  const name =
+    fresh.username ||
+    window.wallet.slice(0,4)+"..."+window.wallet.slice(-4)
+
+  document.getElementById("walletTitle").innerText = name
+  document.getElementById("profileBio").innerText = fresh.bio || ""
+
+  document.getElementById("username").value = fresh.username || ""
+  document.getElementById("bio").value = fresh.bio || ""
+
+  await window.updateWalletUI(true)
+
+  document.getElementById("saveStatus").innerText = "saved ✓"
 }
 
 // ========================
@@ -232,7 +237,13 @@ async function saveProfile(){
 window.addEventListener("DOMContentLoaded", async () => {
 
   await autoConnect()
-  await load()
+
+  if(window.wallet){
+    delete window.profileCache[window.wallet]
+  }
+
+  await render()
+  await updateWalletUI(true)
 
 })
 
