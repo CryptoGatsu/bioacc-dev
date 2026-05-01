@@ -5,45 +5,22 @@ export default async function handler(req, res){
     const SUPABASE_URL = process.env.SUPABASE_URL
     const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY
 
+    console.log("URL:", SUPABASE_URL)
+    console.log("KEY EXISTS:", !!SUPABASE_KEY)
+
     if(!SUPABASE_URL || !SUPABASE_KEY){
-      return res.status(500).json({ error: "Missing Supabase env vars" })
+      return res.status(500).json({
+        error: "Missing env vars",
+        url: SUPABASE_URL,
+        key: !!SUPABASE_KEY
+      })
     }
 
-    // ========================
-    // GET PROFILE
-    // ========================
-    if(req.method === "GET"){
-
-      const { wallet } = req.query
-
-      if(!wallet){
-        return res.status(400).json({ error: "Missing wallet" })
-      }
-
-      const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/profiles?wallet=eq.${wallet}`,
-        {
-          headers:{
-            apikey: SUPABASE_KEY,
-            Authorization: `Bearer ${SUPABASE_KEY}`
-          }
-        }
-      )
-
-      const data = await r.json()
-      return res.status(200).json(data[0] || {})
-    }
-
-    // ========================
-    // SAVE PROFILE
-    // ========================
     if(req.method === "POST"){
 
       const { wallet, username, bio } = req.body
 
-      if(!wallet){
-        return res.status(400).json({ error: "Missing wallet" })
-      }
+      console.log("BODY:", req.body)
 
       const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
         method: "POST",
@@ -63,19 +40,21 @@ export default async function handler(req, res){
 
       const text = await r.text()
 
-      if(!r.ok){
-        console.log("SUPABASE ERROR:", text)
-        return res.status(500).json({ error: text })
-      }
+      console.log("SUPABASE RESPONSE:", text)
 
-      return res.status(200).json({ success: true })
+      return res.status(r.status).json({
+        status: r.status,
+        response: text
+      })
     }
 
-    return res.status(405).json({ error: "Method not allowed" })
+    if(req.method === "GET"){
+      return res.status(200).json({})
+    }
 
   }catch(err){
-    console.log("API crash:", err)
-    return res.status(500).json({ error: "Server crash" })
+    console.log("CRASH:", err)
+    return res.status(500).json({ error: err.message })
   }
 
 }
