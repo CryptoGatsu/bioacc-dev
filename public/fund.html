@@ -298,9 +298,6 @@ float:right;
 
 const TOKENS_PER_VOTE = 1000000
 
-let wallet=null
-let tokenBalance=0
-let voteBank=0
 let backendData=null
 
 let currentPage=0
@@ -373,9 +370,10 @@ data.projects.forEach(p=>{
 
 let projects=[...data.projects].sort((a,b)=>(b.votes||0)-(a.votes||0))
 
-const votedAt=data.votes?.[wallet]
-const votedProjectId=data.voteIndex?.[wallet]
-const submittedAt=data.submissions?.[wallet]
+// 🔥 FIXED
+const votedAt=data.votes?.[window.wallet]
+const votedProjectId=data.voteIndex?.[window.wallet]
+const submittedAt=data.submissions?.[window.wallet]
 
 if(submittedAt && Date.now()-submittedAt<86400000){
 document.getElementById("status").innerText =
@@ -386,7 +384,6 @@ const totalPages=Math.ceil(projects.length/perPage)
 const start=currentPage*perPage
 const pageProjects=projects.slice(start,start+perPage)
 
-// 🔥 FIX: ASYNC BUILD
 let htmlParts = []
 
 for(let i=0;i<pageProjects.length;i++){
@@ -402,7 +399,6 @@ if(start+i===0) rank="top1"
 if(start+i===1) rank="top2"
 if(start+i===2) rank="top3"
 
-// 🔥 FIX: GET USERNAME FROM SUPABASE
 let displayName = p.wallet.slice(0,4)+"..."+p.wallet.slice(-4)
 try{
   const profile = await window.getProfile(p.wallet)
@@ -428,7 +424,6 @@ ${p.website?`<a href="${p.website}" target="_blank">website</a>`:""}
 
 <div class="desc">${p.desc}</div>
 
-<!-- 🔥 FIX: SHOW USERNAME -->
 <div style="margin-top:6px;font-size:13px;color:#7CFF3A;">
 by ${displayName}
 </div>
@@ -473,13 +468,13 @@ document.getElementById("pagination").innerHTML=pagination
 
 async function vote(projectId, localIndex){
 
-if(!wallet) return alert("connect wallet")
+if(!window.wallet) return alert("connect wallet")
 
-if(tokenBalance < 1){
+if(window.tokenBalance < 1){
 return alert("you need at least 1M tokens to vote")
 }
 
-const votedAt=backendData.votes?.[wallet]
+const votedAt=backendData.votes?.[window.wallet]
 if(votedAt && Date.now()-votedAt<86400000){
 return alert("already voted today")
 }
@@ -487,7 +482,10 @@ return alert("already voted today")
 const amount=parseInt(document.getElementById(`vote-${localIndex}`).value)||1
 
 const timestamp = Date.now()
-const message = `vote:${wallet}:${projectId}:${timestamp}`
+
+// 🔥 FIXED
+const message = `vote:${window.wallet}:${projectId}:${timestamp}`
+
 const signed = await signMessage(message)
 
 await fetch("/api/update",{
@@ -497,7 +495,7 @@ body:JSON.stringify({
 action:"vote",
 projectId,
 weight:amount,
-wallet,
+wallet:window.wallet,
 timestamp,
 signature:signed.signature,
 message
@@ -509,9 +507,9 @@ loadProjects()
 
 async function submitProject(){
 
-if(!wallet) return alert("connect wallet")
+if(!window.wallet) return alert("connect wallet")
 
-const last=backendData.submissions?.[wallet]
+const last=backendData.submissions?.[window.wallet]
 if(last && Date.now()-last<86400000){
 return alert("already submitted today")
 }
@@ -541,7 +539,10 @@ reader.readAsDataURL(file)
 const id = "proj_" + Math.random().toString(36).substring(2,10)
 
 const timestamp = Date.now()
-const message = `submit:${wallet}:${timestamp}`
+
+// 🔥 FIXED
+const message = `submit:${window.wallet}:${timestamp}`
+
 const signed = await signMessage(message)
 
 await fetch("/api/update",{
@@ -553,7 +554,7 @@ data:{
 id,
 name,github,social,website,desc,logo,
 votes:0,
-wallet,
+wallet:window.wallet,
 timestamp,
 signature:signed.signature,
 message
