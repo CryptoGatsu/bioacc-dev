@@ -113,21 +113,6 @@ text-decoration:underline;
 <button onclick="saveProfile()">save profile</button>
 <div id="saveStatus" style="margin-top:10px;color:#7CFF3A;font-size:14px;"></div>
 
-<div class="section">
-<h2>projects</h2>
-<div id="projects"></div>
-</div>
-
-<div class="section">
-<h2>voted</h2>
-<div id="voted"></div>
-</div>
-
-<div class="section">
-<h2>badges</h2>
-<div id="badges"></div>
-</div>
-
 </div>
 
 <script src="/wallet.js"></script>
@@ -136,16 +121,17 @@ text-decoration:underline;
 <script>
 
 let viewingWallet = null
-let inputsInitialized = false
 
 const params = new URLSearchParams(window.location.search)
 viewingWallet = params.get("wallet")
 
+// ========================
+// LOAD PAGE
+// ========================
 async function load(){
 
   window.wallet = localStorage.getItem("wallet")
 
-  // fallback (important)
   if(!viewingWallet){
     viewingWallet = window.wallet
   }
@@ -154,6 +140,9 @@ async function load(){
   updateWalletUI()
 }
 
+// ========================
+// RENDER PROFILE
+// ========================
 async function render(){
 
   if(!viewingWallet){
@@ -161,20 +150,28 @@ async function render(){
     return
   }
 
- const profile = await window.getProfile(viewingWallet)
+  const profile = await window.getProfile(viewingWallet)
 
-  if(!window.backendData) window.backendData = { profiles:{} }
-  window.backendData.profiles[viewingWallet] = profile
+  const name =
+    profile.username ||
+    viewingWallet.slice(0,4)+"..."+viewingWallet.slice(-4)
 
-  const name = profile.username || viewingWallet.slice(0,4)+"..."+viewingWallet.slice(-4)
-
+  // TITLE
   document.getElementById("walletTitle").innerText = name
+
+  // BIO DISPLAY
   document.getElementById("profileBio").innerText = profile.bio || ""
+
+  // INPUTS (🔥 IMPORTANT FIX)
+  document.getElementById("username").value = profile.username || ""
+  document.getElementById("bio").value = profile.bio || ""
+
 }
 
+// ========================
+// SAVE PROFILE (FIXED)
+// ========================
 async function saveProfile(){
-
-  await window.refreshProfileUI(wallet)
 
   if(!window.wallet){
     alert("connect wallet")
@@ -186,13 +183,11 @@ async function saveProfile(){
 
   const timestamp = Date.now()
   const message = `profile:${window.wallet}:${timestamp}`
-
   const encoded = new TextEncoder().encode(message)
 
-  // 🔥 THIS IS WHAT YOU LOST
   const signed = await window.solana.signMessage(encoded, "utf8")
 
-  // 🔥 SEND TO SUPABASE API (NOT GITHUB)
+  // SAVE TO API
   await fetch("/api/profile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -205,29 +200,30 @@ async function saveProfile(){
     })
   })
 
-  // 🔥 INSTANT UI UPDATE (NO DELAY)
-  const profile = { username, bio }
+  // 🔥 CLEAR CACHE
+  if(window.profileCache){
+    delete window.profileCache[window.wallet]
+  }
 
-  if(!window.backendData) window.backendData = { profiles:{} }
-  window.backendData.profiles[window.wallet] = profile
+  // 🔥 REFRESH UI (THIS WAS MISSING)
+  await window.refreshProfileUI(window.wallet)
 
-  render()
+  // 🔥 RE-RENDER PAGE
+  await render()
+
+  // 🔥 NAV UPDATE
   updateWalletUI()
+
+  document.getElementById("saveStatus").innerText = "saved ✓"
 }
 
+// ========================
+// INIT
+// ========================
 window.addEventListener("DOMContentLoaded", async () => {
 
   await autoConnect()
-
-  if(window.wallet){
-    const profile = await window.getProfile(viewingWallet)
-
-    if(!window.backendData) window.backendData = { profiles:{} }
-    window.backendData.profiles[window.wallet] = profile
-  }
-
-  render()
-  updateWalletUI()
+  await load()
 
 })
 
