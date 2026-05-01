@@ -193,42 +193,60 @@ async function saveProfile(){
   const username = document.getElementById("username").value
   const bio = document.getElementById("bio").value
 
-  const timestamp = Date.now()
-  const message = `profile:${window.wallet}:${timestamp}`
+  // =========================
+  // 🔥 INSTANT UI UPDATE (KEY FIX)
+  // =========================
+  if(!window.backendData){
+    window.backendData = { profiles:{} }
+  }
 
-  const encoded = new TextEncoder().encode(message)
-  const signed = await window.solana.signMessage(encoded,"utf8")
+  if(!window.backendData.profiles){
+    window.backendData.profiles = {}
+  }
 
-  await fetch("/api/update",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      action:"saveProfile",
-      data:{
-        wallet: window.wallet,
-        username,
-        bio,
-        timestamp,
-        signature:Array.from(signed.signature),
-        message
-      }
-    })
-  })
+  window.backendData.profiles[window.wallet] = {
+    username,
+    bio,
+    updated: new Date().toISOString()
+  }
 
-  // wait for GitHub propagation
-  await new Promise(r=>setTimeout(r,1500))
-
-  // 🔥 force fresh backend
-  await loadBackend()
-
-  // 🔥 reset input lock so new data loads
-  inputsInitialized = false
-
-  // 🔥 re-render everything
+  // instant UI refresh
   render()
   updateWalletUI()
 
-  status.innerText = "profile saved ✓"
+  status.innerText = "saved ✓"
+
+  // =========================
+  // 🔥 BACKGROUND SYNC
+  // =========================
+  try{
+
+    const timestamp = Date.now()
+    const message = `profile:${window.wallet}:${timestamp}`
+
+    const encoded = new TextEncoder().encode(message)
+    const signed = await window.solana.signMessage(encoded,"utf8")
+
+    await fetch("/api/update",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        action:"saveProfile",
+        data:{
+          wallet: window.wallet,
+          username,
+          bio,
+          timestamp,
+          signature:Array.from(signed.signature),
+          message
+        }
+      })
+    })
+
+  }catch(err){
+    console.log("background save failed", err)
+    status.innerText = "saved locally (sync pending)"
+  }
 
   setTimeout(()=>{
     status.innerText = ""
