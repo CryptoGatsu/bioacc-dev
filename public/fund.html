@@ -296,280 +296,154 @@ float:right;
 
 <script>
 
+// ========================
+// CONFIG
+// ========================
 const TOKENS_PER_VOTE = 1000000
 
-let backendData=null
-
+let projects = []
 let currentPage=0
 const perPage=5
 
-function closeProfile(){
-document.getElementById("profileModal").style.display="none"
-}
-
-
-// 🔥 FIX: ASYNC PROFILE LINK
-async function profileLink(wallet){
-  const profile = await window.getProfile(wallet)
-  const name = profile?.username || wallet.slice(0,4)+"..."+wallet.slice(-4)
-  return `<span class="profile-link" onclick="goProfile('${wallet}')">${name}</span>`
-}
-
-function goProfile(wallet){
-window.location = "/profile?wallet=" + wallet
-}
-
-
-function toggleConfirm(){
-  const box = document.getElementById("confirmBox")
-  const input = document.getElementById("confirm")
-
-  input.checked = !input.checked
-
-  if(input.checked){
-    box.classList.add("active")
-  } else {
-    box.classList.remove("active")
-  }
-}
-
-function getCooldownText(last){
-const remaining=86400000-(Date.now()-last)
-if(remaining<=0) return ""
-const h=Math.floor(remaining/3600000)
-const m=Math.floor((remaining%3600000)/60000)
-return `${h}h ${m}m`
-}
-
-async function signMessage(message){
-  const provider = window.solana
-  const encoded = new TextEncoder().encode(message)
-  const signed = await provider.signMessage(encoded, "utf8")
-  return { signature: Array.from(signed.signature) }
-}
-
-async function getTokenBalance(wallet){
-const res = await fetch(`https://api.helius.xyz/v0/addresses/${wallet}/balances?api-key=abe30281-08a6-4f68-921b-4da93db84835`)
-const data = await res.json()
-const token = data.tokens.find(t => t.mint === "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump")
-return token ? token.amount / (10 ** (token.decimals || 6)) : 0
-}
-
+// ========================
+// LOAD PROJECTS (SUPABASE)
+// ========================
 async function loadProjects(){
 
-const res=await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
-const data=await res.json()
+  const res = await fetch("/api/projects")
+  const data = await res.json()
 
-backendData=data
+  projects = data.sort((a,b)=>(b.votes||0)-(a.votes||0))
 
-data.projects.forEach(p=>{
-  if(!p.id){
-    p.id = "proj_" + Math.random().toString(36).substring(2,10)
+  const totalPages=Math.ceil(projects.length/perPage)
+  const start=currentPage*perPage
+  const pageProjects=projects.slice(start,start+perPage)
+
+  let htmlParts=[]
+
+  for(let i=0;i<pageProjects.length;i++){
+
+    const p = pageProjects[i]
+
+    let displayName = p.wallet.slice(0,4)+"..."+p.wallet.slice(-4)
+
+    try{
+      const profile = await window.getProfile(p.wallet)
+      if(profile?.username){
+        displayName = profile.username
+      }
+    }catch{}
+
+    htmlParts.push(`
+    <div class="project">
+
+    ${p.logo?`<img class="logo" src="${p.logo}">`:""}
+
+    <div class="project-content">
+
+    <b>${p.name}</b>
+
+    <div class="links">
+    <a href="${p.github}" target="_blank">github</a>
+    <a href="${p.social}" target="_blank">social</a>
+    ${p.website?`<a href="${p.website}" target="_blank">website</a>`:""}
+    </div>
+
+    <div class="desc">${p.description}</div>
+
+    <div style="margin-top:6px;font-size:13px;color:#7CFF3A;">
+    by ${displayName}
+    </div>
+
+    <br>
+    votes: ${p.votes||0}
+
+    <br>
+
+    <input class="vote-input" id="vote-${i}" placeholder="votes">
+
+    <div class="vote" onclick="vote('${p.id}', ${i})">vote</div>
+
+    </div>
+    </div>
+    `)
   }
-})
 
-let projects=[...data.projects].sort((a,b)=>(b.votes||0)-(a.votes||0))
-
-// 🔥 FIXED
-const votedAt=data.votes?.[window.wallet]
-const votedProjectId=data.voteIndex?.[window.wallet]
-const submittedAt=data.submissions?.[window.wallet]
-
-if(submittedAt && Date.now()-submittedAt<86400000){
-document.getElementById("status").innerText =
-`submit cooldown: ${getCooldownText(submittedAt)}`
+  document.getElementById("feed").innerHTML = htmlParts.join("")
 }
 
-const totalPages=Math.ceil(projects.length/perPage)
-const start=currentPage*perPage
-const pageProjects=projects.slice(start,start+perPage)
-
-let htmlParts = []
-
-for(let i=0;i<pageProjects.length;i++){
-
-const p = pageProjects[i]
-
-const votedToday = votedAt && (Date.now() - votedAt < 86400000)
-const isMine = votedProjectId === p.id
-const locked = votedToday
-
-let rank=""
-if(start+i===0) rank="top1"
-if(start+i===1) rank="top2"
-if(start+i===2) rank="top3"
-
-let displayName = p.wallet.slice(0,4)+"..."+p.wallet.slice(-4)
-try{
-  const profile = await window.getProfile(p.wallet)
-  if(profile?.username){
-    displayName = profile.username
-  }
-}catch{}
-
-htmlParts.push(`
-<div class="project ${rank}">
-
-${p.logo?`<img class="logo" src="${p.logo}">`:""}
-
-<div class="project-content">
-
-<b>${p.name}</b>
-
-<div class="links">
-<a href="${p.github}" target="_blank">github</a>
-<a href="${p.social}" target="_blank">social</a>
-${p.website?`<a href="${p.website}" target="_blank">website</a>`:""}
-</div>
-
-<div class="desc">${p.desc}</div>
-
-<div style="margin-top:6px;font-size:13px;color:#7CFF3A;">
-by ${displayName}
-</div>
-
-<br>
-votes: ${p.votes||0}
-
-${votedToday && isMine ? `<div class="voted-today">✔ you voted here today</div>` : ""}
-
-<br>
-
-<input class="vote-input" id="vote-${i}" placeholder="votes">
-
-<div class="vote" onclick="vote('${p.id}', ${i})">
-${locked?"locked":"vote"}
-</div>
-
-<div class="cooldown">
-${locked?`cooldown: ${getCooldownText(votedAt)}`:""}
-</div>
-
-</div>
-</div>
-`)
-}
-
-let html = htmlParts.join("")
-
-let pagination=""
-
-if(totalPages>1){
-if(currentPage>0) pagination+=`<button onclick="prevPage()" class="button">prev</button>`
-for(let i=0;i<totalPages;i++){
-pagination+=`<button onclick="goPage(${i})" class="button">${i+1}</button>`
-}
-if(currentPage<totalPages-1) pagination+=`<button onclick="nextPage()" class="button">next</button>`
-}
-
-document.getElementById("feed").innerHTML=html
-document.getElementById("pagination").innerHTML=pagination
-}
-
-async function vote(projectId, localIndex){
-
-if(!window.wallet) return alert("connect wallet")
-
-if(window.tokenBalance < 1){
-return alert("you need at least 1M tokens to vote")
-}
-
-const votedAt=backendData.votes?.[window.wallet]
-if(votedAt && Date.now()-votedAt<86400000){
-return alert("already voted today")
-}
-
-const amount=parseInt(document.getElementById(`vote-${localIndex}`).value)||1
-
-const timestamp = Date.now()
-
-// 🔥 FIXED
-const message = `vote:${window.wallet}:${projectId}:${timestamp}`
-
-const signed = await signMessage(message)
-
-await fetch("/api/update",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({
-action:"vote",
-projectId,
-weight:amount,
-wallet:window.wallet,
-timestamp,
-signature:signed.signature,
-message
-})
-})
-
-loadProjects()
-}
-
+// ========================
+// SUBMIT PROJECT (SUPABASE)
+// ========================
 async function submitProject(){
 
-if(!window.wallet) return alert("connect wallet")
+  if(!window.wallet) return alert("connect wallet")
 
-const last=backendData.submissions?.[window.wallet]
-if(last && Date.now()-last<86400000){
-return alert("already submitted today")
+  const name=document.getElementById("name").value.trim()
+  const github=document.getElementById("github").value.trim()
+  const social=document.getElementById("social").value.trim()
+  const website=document.getElementById("website").value.trim()
+  const desc=document.getElementById("desc").value.trim()
+
+  const file=document.getElementById("logo").files[0]
+  let logo=""
+
+  if(file){
+    logo=await new Promise(r=>{
+      const reader=new FileReader()
+      reader.onload=()=>r(reader.result)
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const id = "proj_" + Math.random().toString(36).substring(2,10)
+
+  await fetch("/api/projects",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      id,
+      name,
+      github,
+      social,
+      website,
+      description:desc,
+      logo,
+      votes:0,
+      wallet:window.wallet
+    })
+  })
+
+  document.getElementById("status").innerText="submitted ✅"
+
+  loadProjects()
 }
 
-if(!document.getElementById("confirm").checked){
-alert("confirm 14+ days")
-return
+// ========================
+// VOTE (SUPABASE)
+// ========================
+async function vote(projectId, localIndex){
+
+  if(!window.wallet) return alert("connect wallet")
+
+  const amount=parseInt(document.getElementById(`vote-${localIndex}`).value)||1
+
+  await fetch("/api/vote",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      wallet:window.wallet,
+      projectId,
+      amount
+    })
+  })
+
+  loadProjects()
 }
 
-const name=document.getElementById("name").value.trim()
-const github=document.getElementById("github").value.trim()
-const social=document.getElementById("social").value.trim()
-const website=document.getElementById("website").value.trim()
-const desc=document.getElementById("desc").value.trim()
-
-const file=document.getElementById("logo").files[0]
-let logo=""
-
-if(file){
-logo=await new Promise(r=>{
-const reader=new FileReader()
-reader.onload=()=>r(reader.result)
-reader.readAsDataURL(file)
-})
-}
-
-const id = "proj_" + Math.random().toString(36).substring(2,10)
-
-const timestamp = Date.now()
-
-// 🔥 FIXED
-const message = `submit:${window.wallet}:${timestamp}`
-
-const signed = await signMessage(message)
-
-await fetch("/api/update",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({
-action:"submit",
-data:{
-id,
-name,github,social,website,desc,logo,
-votes:0,
-wallet:window.wallet,
-timestamp,
-signature:signed.signature,
-message
-}
-})
-})
-
-document.getElementById("status").innerText="submitted ✅"
-loadProjects()
-}
-
-function nextPage(){currentPage++;loadProjects()}
-function prevPage(){if(currentPage>0)currentPage--;loadProjects()}
-function goPage(p){currentPage=p;loadProjects()}
-
+// ========================
+// INIT
+// ========================
 window.addEventListener("DOMContentLoaded", async () => {
 
   await autoConnect()
@@ -578,8 +452,6 @@ window.addEventListener("DOMContentLoaded", async () => {
 })
 
 </script>
-
-<script src="/profile.js"></script>
 
 </body>
 </html>
