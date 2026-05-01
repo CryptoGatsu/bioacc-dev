@@ -94,6 +94,10 @@ window.autoConnect = async function(){
   }
 
   updateWalletUI()
+  const title = document.getElementById("walletTitle")
+if(title){
+  title.innerText = window.getDisplayName(window.wallet)
+}
 
 }
 
