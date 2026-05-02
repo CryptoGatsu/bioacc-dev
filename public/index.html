@@ -315,22 +315,39 @@ status.innerText="market data unavailable"
 
 // 🔥 STATS (UNCHANGED — GitHub source)
 async function loadStats(){
-try{
-const res=await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
-const data=await res.json()
 
-let totalVotes=0
-data.projects?.forEach(p=>{
-totalVotes+=(p.votes||0)
-})
+  try{
 
-document.getElementById("statProjects").innerText=data.projects?.length||0
-document.getElementById("statVotes").innerText=totalVotes
-document.getElementById("statSigners").innerText=data.manifesto?.length||0
+    // 🔥 GET PROJECTS
+    const projRes = await fetch("/api/projects")
+    const projects = await projRes.json()
 
-}catch(err){
-console.log("stats error",err)
-}
+    // 🔥 GET VOTES
+    const voteRes = await fetch("/api/vote")
+    const votes = await voteRes.json()
+
+    // 🔥 GET SIGNERS (manifesto table)
+    const manRes = await fetch("/api/manifesto")
+    const signers = await manRes.json()
+
+    // 🔥 CALCULATE TOTAL VOTES
+    let totalVotes = 0
+    votes.forEach(v=>{
+      totalVotes += v.amount || 0
+    })
+
+    // 🔥 UPDATE UI
+    document.getElementById("statProjects").innerText = projects.length || 0
+    document.getElementById("statVotes").innerText = totalVotes
+    document.getElementById("statSigners").innerText = signers.length || 0
+
+  }catch(err){
+    console.log("stats error", err)
+
+    document.getElementById("statProjects").innerText = "-"
+    document.getElementById("statVotes").innerText = "-"
+    document.getElementById("statSigners").innerText = "-"
+  }
 }
 
 
