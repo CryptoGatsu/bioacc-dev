@@ -224,6 +224,13 @@ async function loadWalletData(){
 // ========================
 window.updateWalletUI = async function(forceFresh = false){
 
+  // 🧹 CLEAN OLD UI FIRST
+const old = document.getElementById("navProfile")
+if(old) old.remove()
+
+const oldTooltip = document.getElementById("profileTooltip")
+if(oldTooltip) oldTooltip.remove()
+
   if(!window.wallet){
     window.wallet = localStorage.getItem("wallet")
   }
@@ -317,13 +324,18 @@ document.addEventListener("click", ()=>{
 // ========================
 // DISCONNECT
 // ========================
-window.disconnectWallet = async function(){
+window.disconnectWallet = function(){
+  window.wallet = null
+  localStorage.removeItem("wallet")
 
-  try{
-    await window.solana.disconnect()
-  }catch{}
+  // 🧹 clear UI
+  const el = document.getElementById("navProfile")
+  if(el) el.remove()
 
-  window.resetWalletState()
+  const dd = document.getElementById("walletDropdown")
+  if(dd) dd.remove()
+
+  updateWalletUI()
 }
 
 // ========================
