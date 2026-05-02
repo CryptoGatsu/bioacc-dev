@@ -214,6 +214,24 @@ float:right;
   background:#111;
 }
 
+.vote-btn:disabled{
+  background:#222;
+  color:#555;
+  cursor:not-allowed;
+}
+
+.project{
+  align-items:flex-start;
+}
+
+.project-content h3{
+  margin:0 0 5px 0;
+}
+
+.links{
+  margin-bottom:5px;
+}
+
 
 
 </style>
@@ -273,7 +291,12 @@ float:right;
 <input id="github" placeholder="github link (required)">
 <input id="social" placeholder="social link (required)">
 <input id="website" placeholder="website (optional)">
-<input type="file" id="logo" class="file-input" accept="image/*">
+<label class="button" style="display:inline-block;">
+  choose file
+  <input type="file" id="logo" accept="image/*" style="display:none;">
+</label>
+
+<span id="fileName" style="color:#7CFF3A;margin-left:10px;"></span>
 <textarea id="desc" maxlength="200" placeholder="description (max 200 chars)"></textarea>
 
 <div class="confirm-box" onclick="toggleConfirm()" id="confirmBox">
@@ -317,77 +340,108 @@ let projects = []
 let currentPage=0
 const perPage=5
 
+function toggleConfirm(){
+  const box = document.getElementById("confirmBox")
+  const input = document.getElementById("confirm")
+
+  const active = box.classList.toggle("active")
+  input.checked = active
+}
+
+document.getElementById("logo").addEventListener("change", e=>{
+  const file = e.target.files[0]
+  document.getElementById("fileName").innerText = file ? file.name : ""
+})
+
 // ========================
 // LOAD PROJECTS (SUPABASE)
 // ========================
 async function loadProjects(){
 
+  const container = document.getElementById("projects")
+  if(!container) return
+
   try{
 
-    // 🔥 GET PROJECTS
-    const res = await fetch("/api/projects")
-    const projects = await res.json()
+    const [projRes, voteRes] = await Promise.all([
+      fetch("/api/projects"),
+      fetch("/api/vote")
+    ])
 
-    // 🔥 GET VOTES (REAL SOURCE OF TRUTH)
-    const votesRes = await fetch("/api/vote")
-    const votes = await votesRes.json()
+    const projects = await projRes.json()
+    const votes = await voteRes.json()
 
     // 🔥 BUILD VOTE MAP
     const voteMap = {}
+    const userVoteMap = {}
 
     votes.forEach(v=>{
       voteMap[v.project_id] = (voteMap[v.project_id] || 0) + v.amount
+
+      if(v.wallet === window.wallet){
+        userVoteMap[v.project_id] = (userVoteMap[v.project_id] || 0) + v.amount
+      }
     })
 
-    // 🔥 ATTACH REAL VOTES TO PROJECTS
+    // attach votes
     projects.forEach(p=>{
       p.realVotes = voteMap[p.id] || 0
+      p.userVotes = userVoteMap[p.id] || 0
     })
 
-    // 🔥 SORT BY REAL VOTES
+    // sort
     projects.sort((a,b)=>b.realVotes - a.realVotes)
-
-    // 🔥 SAFE DOM GET (FIXES YOUR CRASH)
-    const container = document.getElementById("projects")
-
-    if(!container){
-      console.error("❌ #projects container not found")
-      return
-    }
 
     container.innerHTML = ""
 
-    // 🔥 RENDER
-    projects.forEach((p,i)=>{
+projects.forEach((p,i)=>{
 
-      container.innerHTML += `
-        <div class="project">
-          <h3>${p.name}</h3>
+  const disabled = window.voteBank <= 0
 
-          <div>
-            <a href="${p.github || "#"}" target="_blank">github</a>
-            <a href="${p.social || "#"}" target="_blank">social</a>
-            <a href="${p.website || "#"}" target="_blank">website</a>
-          </div>
+  container.innerHTML += `
+    <div class="project ${i===0?'top1':i===1?'top2':i===2?'top3':''}">
+      
+      <img class="logo" src="${p.logo || ''}" />
 
-          <p>${p.description || ""}</p>
+      <div class="project-content">
 
-          <div>votes: ${p.realVotes}</div>
+        <h3>${p.name}</h3>
 
-          <input id="vote-${i}" placeholder="votes" />
-          <div 
-          class="vote-btn" 
-          style="color:${window.voteBank > 0 ? '#7CFF3A' : '#555'}; cursor:${window.voteBank > 0 ? 'pointer' : 'not-allowed'};"
-          onclick="${window.voteBank > 0 ? `vote('${p.id}', ${i})` : ''}"
-          >
-          ${window.voteBank > 0 ? 'vote' : 'no votes'}
+        <div class="links">
+          <a href="${p.github || "#"}" target="_blank">github</a>
+          <a href="${p.social || "#"}" target="_blank">social</a>
+          <a href="${p.website || "#"}" target="_blank">website</a>
         </div>
+
+        <div class="desc">${p.description || ""}</div>
+
+        <div style="margin-top:10px;">
+          votes: ${p.realVotes}
+        </div>
+
+        <input 
+          id="vote-${i}" 
+          class="vote-input"
+          type="number" 
+          min="1"
+          placeholder="votes"
+        />
+
+        <button 
+          class="button vote-btn"
+          ${disabled ? "disabled" : ""}
+          onclick="vote('${p.id}', ${i})"
+        >
+          ${disabled ? "no votes" : "vote"}
+        </button>
+
       </div>
-        `
-    })
+    </div>
+  `
+})
 
   }catch(err){
-    console.error("loadProjects error:", err)
+    console.error("loadProjects error", err)
   }
 }
 
@@ -399,6 +453,12 @@ async function submitProject(){
   if(!window.wallet) return alert("connect wallet")
 
   const statusEl = document.getElementById("status")
+
+  const confirmed = document.getElementById("confirm").checked
+
+if(!confirmed){
+  return alert("you must confirm 14+ days")
+}
 
   const name=document.getElementById("name").value.trim()
   const github=document.getElementById("github").value.trim()
@@ -462,37 +522,33 @@ async function submitProject(){
 // ========================
 // VOTE (SUPABASE + SIGNED)
 // ========================
-async function vote(projectId, localIndex){
+async function vote(projectId, index){
 
   if(!window.wallet) return alert("connect wallet")
 
-  const amount=parseInt(document.getElementById(`vote-${localIndex}`).value)||1
-
   if(window.voteBank <= 0){
-  alert("no voting power")
-  return
-}
-
-  if(amount < 1){
-    return alert("invalid vote amount")
+    return alert("no voting power")
   }
 
-  if(window.voteBank <= 0){
-  return alert("no votes available")
-}
+  const amount = parseInt(document.getElementById(`vote-${index}`).value) || 1
 
-  // 🔥 SIGN MESSAGE
+  if(amount < 1){
+    return alert("invalid amount")
+  }
+
   const timestamp = Date.now()
   const message = `vote:${window.wallet}:${projectId}:${timestamp}`
 
-  const encoded = new TextEncoder().encode(message)
-  const signed = await window.solana.signMessage(encoded, "utf8")
+  const signed = await window.solana.signMessage(
+    new TextEncoder().encode(message),
+    "utf8"
+  )
 
   const res = await fetch("/api/vote",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      wallet:window.wallet,
+    body: JSON.stringify({
+      wallet: window.wallet,
       projectId,
       amount,
       signature: Array.from(signed.signature),
@@ -507,7 +563,12 @@ async function vote(projectId, localIndex){
     return
   }
 
-  loadProjects()
+  // 🔥 UPDATE LOCAL POWER
+  window.voteBank -= amount
+
+  // 🔥 RELOAD
+  await loadProjects()
+  await updateWalletUI()
 }
 
 // ========================
