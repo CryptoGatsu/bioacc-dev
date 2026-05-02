@@ -168,27 +168,24 @@ bio/acc is a decentralized movement accelerating biotechnology.
 
 </div>
 
-<script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
-
 <script src="/wallet.js"></script>
 <script src="/profile.js"></script>
 
 <script>
 
+// ========================
+// LOAD SIGNATURES (SUPABASE)
+// ========================
 async function loadSignatures(){
 
-  // 🔥 FIX: LOAD BACKEND DATA
-  const res = await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/submissions.json?t="+Date.now())
-  window.backendData = await res.json()
-
-  const sigs = window.backendData.manifesto || []
+  const res = await fetch("/api/manifesto")
+  const sigs = await res.json()
 
   const list=document.getElementById("signatures")
   const count=document.getElementById("signatureCount")
 
   list.innerHTML=""
 
-  // 🔥 FIX: ASYNC USERNAME RESOLUTION
   for(const sig of sigs){
 
     let name = sig.wallet.slice(0,4)+"..."+sig.wallet.slice(-4)
@@ -202,43 +199,41 @@ async function loadSignatures(){
 
     const el=document.createElement("div")
     el.className="signature"
-    el.innerText=`> ${name} — ${sig.note}`
+    el.innerText=`> ${name} — ${sig.note || ""}`
     list.appendChild(el)
   }
 
   count.innerText=sigs.length+" people have signed the bio/acc manifesto"
 }
 
+
+// ========================
+// SIGN MANIFESTO (SUPABASE)
+// ========================
 async function signManifesto(){
 
   if(!window.wallet) return alert("connect wallet")
 
   const note=document.getElementById("note").value || "signed manifesto"
 
-  const timestamp=Date.now()
-  const message=`manifesto:${window.wallet}:${timestamp}`
-
-  const encoded=new TextEncoder().encode(message)
-  const signed=await window.solana.signMessage(encoded,"utf8")
-
-  await fetch("/api/update",{
+  await fetch("/api/manifesto",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
-      action:"signManifesto",
-      data:{
-        wallet:window.wallet,
-        note,
-        timestamp,
-        signature:Array.from(signed.signature),
-        message
-      }
+      wallet:window.wallet,
+      note
     })
   })
 
-  await loadSignatures()
+  document.getElementById("note").value = ""
+
+  loadSignatures()
 }
 
+
+// ========================
+// INIT
+// ========================
 window.addEventListener("DOMContentLoaded", async () => {
   await autoConnect()
   await loadSignatures()
