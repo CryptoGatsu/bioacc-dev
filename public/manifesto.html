@@ -214,14 +214,24 @@ async function signManifesto(){
 
   if(!window.wallet) return alert("connect wallet")
 
-  const note=document.getElementById("note").value || "signed manifesto"
+  const note = document.getElementById("note").value || "signed manifesto"
+
+  const timestamp = Date.now()
+  const message = `manifesto:${window.wallet}:${timestamp}`
+
+  const encoded = new TextEncoder().encode(message)
+
+  // 🔥 THIS TRIGGERS WALLET POPUP
+  const signed = await window.solana.signMessage(encoded, "utf8")
 
   await fetch("/api/manifesto",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
       wallet:window.wallet,
-      note
+      note,
+      signature: Array.from(signed.signature),
+      message
     })
   })
 

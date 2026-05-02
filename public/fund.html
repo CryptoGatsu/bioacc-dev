@@ -373,17 +373,23 @@ async function loadProjects(){
 }
 
 // ========================
-// SUBMIT PROJECT (SUPABASE)
+// SUBMIT PROJECT (SUPABASE + SIGNED)
 // ========================
 async function submitProject(){
 
   if(!window.wallet) return alert("connect wallet")
+
+  const statusEl = document.getElementById("status")
 
   const name=document.getElementById("name").value.trim()
   const github=document.getElementById("github").value.trim()
   const social=document.getElementById("social").value.trim()
   const website=document.getElementById("website").value.trim()
   const desc=document.getElementById("desc").value.trim()
+
+  if(!name || !github || !social){
+    return alert("missing required fields")
+  }
 
   const file=document.getElementById("logo").files[0]
   let logo=""
@@ -398,7 +404,14 @@ async function submitProject(){
 
   const id = "proj_" + Math.random().toString(36).substring(2,10)
 
-  await fetch("/api/projects",{
+  // 🔥 SIGN MESSAGE
+  const timestamp = Date.now()
+  const message = `submit:${window.wallet}:${timestamp}`
+
+  const encoded = new TextEncoder().encode(message)
+  const signed = await window.solana.signMessage(encoded, "utf8")
+
+  const res = await fetch("/api/projects",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
@@ -409,35 +422,26 @@ async function submitProject(){
       website,
       description:desc,
       logo,
-      votes:0,
-      wallet:window.wallet
+      wallet:window.wallet,
+      signature: Array.from(signed.signature),
+      message
     })
   })
 
-  function toggleConfirm(){
+  const data = await res.json()
 
-  const input = document.getElementById("confirm")
-  const box = document.getElementById("confirmBox")
-
-  input.checked = !input.checked
-
-  if(input.checked){
-    box.classList.add("active")
-    box.innerHTML = "✔ confirmed (14+ days)"
-  } else {
-    box.classList.remove("active")
-    box.innerHTML = "✔ confirm 14+ days"
+  if(!res.ok){
+    alert(data.error || "submit failed")
+    return
   }
 
-}
-
-  document.getElementById("status").innerText="submitted ✅"
+  statusEl.innerText="submitted ✅"
 
   loadProjects()
 }
 
 // ========================
-// VOTE (SUPABASE)
+// VOTE (SUPABASE + SIGNED)
 // ========================
 async function vote(projectId, localIndex){
 
@@ -445,15 +449,35 @@ async function vote(projectId, localIndex){
 
   const amount=parseInt(document.getElementById(`vote-${localIndex}`).value)||1
 
-  await fetch("/api/vote",{
+  if(amount < 1){
+    return alert("invalid vote amount")
+  }
+
+  // 🔥 SIGN MESSAGE
+  const timestamp = Date.now()
+  const message = `vote:${window.wallet}:${projectId}:${timestamp}`
+
+  const encoded = new TextEncoder().encode(message)
+  const signed = await window.solana.signMessage(encoded, "utf8")
+
+  const res = await fetch("/api/vote",{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
       wallet:window.wallet,
       projectId,
-      amount
+      amount,
+      signature: Array.from(signed.signature),
+      message
     })
   })
+
+  const data = await res.json()
+
+  if(!res.ok){
+    alert(data.error || "vote failed")
+    return
+  }
 
   loadProjects()
 }
