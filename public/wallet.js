@@ -265,60 +265,59 @@ if(oldTooltip) oldTooltip.remove()
     title.innerText = name
   }
 
-  const nav = document.querySelector(".nav-links") || document.querySelector(".nav div:last-child")
+  // -------- NAV PROFILE BUTTON (FIXED) --------
+const nav = document.querySelector(".nav-links") || document.querySelector(".nav div:last-child")
 
-  if(nav){
+if(nav){
 
-    let el = document.getElementById("navProfile")
+  let el = document.getElementById("navProfile")
 
-    if(!el){
-      el = document.createElement("span")
-      el.id = "navProfile"
-      el.className = "profile-link"
-      el.style.marginLeft = "20px"
-      el.style.cursor = "pointer"
+  // ✅ CREATE ONLY ONCE
+  if(!el){
+    el = document.createElement("span")
+    el.id = "navProfile"
+    el.className = "profile-link"
+    el.style.marginLeft = "20px"
+    el.style.cursor = "pointer"
+    el.style.position = "relative"
 
-      el.onclick = () => {
-        window.location = "/profile?wallet=" + window.wallet
-      }
-
-      nav.appendChild(el)
-    }
-
-    el.innerHTML = `
-  <span id="walletDisplay">${name} ▾</span>
-  <div id="walletDropdown" style="
-    display:none;
-    position:absolute;
-    right:0;
-    top:30px;
-    background:#000;
-    border:1px solid #222;
-    padding:10px;
-    width:180px;
-    z-index:9999;
-  ">
-    <div class="dropdown-item" onclick="copyWallet()">copy address</div>
-    <div class="dropdown-item" onclick="goProfile()">profile</div>
-    <div class="dropdown-item" onclick="disconnectWallet()" style="color:#ff4444;">disconnect</div>
-  </div>
-`
-
-el.style.position = "relative"
-
-// toggle dropdown
-el.onclick = (e)=>{
-  e.stopPropagation()
-  const dd = document.getElementById("walletDropdown")
-  dd.style.display = dd.style.display === "block" ? "none" : "block"
-}
-
-// close on outside click
-document.addEventListener("click", ()=>{
-  const dd = document.getElementById("walletDropdown")
-  if(dd) dd.style.display = "none"
-})
+    nav.appendChild(el)
   }
+
+  const name = await window.getDisplayName(window.wallet)
+
+  // ✅ ALWAYS UPDATE CONTENT (NOT RECREATE)
+  el.innerHTML = `
+    <span>${name} ▾</span>
+    <div id="walletDropdown" style="
+      display:none;
+      position:absolute;
+      right:0;
+      top:30px;
+      background:#000;
+      border:1px solid #222;
+      padding:10px;
+      width:180px;
+      z-index:9999;
+    ">
+      <div class="dropdown-item" onclick="copyWallet()">copy address</div>
+      <div class="dropdown-item" onclick="goProfile()">profile</div>
+      <div class="dropdown-item" onclick="disconnectWallet()" style="color:#ff4444;">disconnect</div>
+    </div>
+  `
+
+  // toggle dropdown
+  el.onclick = (e)=>{
+    e.stopPropagation()
+    const dd = el.querySelector("#walletDropdown")
+    dd.style.display = dd.style.display === "block" ? "none" : "block"
+  }
+
+  document.addEventListener("click", ()=>{
+    const dd = el.querySelector("#walletDropdown")
+    if(dd) dd.style.display = "none"
+  })
+}
 }
 
 // ========================

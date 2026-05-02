@@ -90,7 +90,3 @@ async function initProfile(){
 
 }
 
-// ========================
-// AUTO LOOP INIT
-// ========================
-setInterval(initProfile, 500)
