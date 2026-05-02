@@ -9,7 +9,7 @@ export default async function handler(req, res){
   try{
 
     // ========================
-    // GET (FETCH ALL VOTES)
+    // GET ALL VOTES
     // ========================
     if(req.method === "GET"){
       const r = await fetch(`${SUPABASE_URL}/rest/v1/votes?select=*`,{
@@ -19,8 +19,7 @@ export default async function handler(req, res){
         }
       })
 
-      const data = await r.json()
-      return res.json(data)
+      return res.json(await r.json())
     }
 
     // ========================
@@ -45,7 +44,7 @@ export default async function handler(req, res){
       return res.status(400).json({ error:"missing fields" })
     }
 
-    const voteAmount = parseInt(amount) || 1
+    const voteAmount = Math.min(parseInt(amount) || 1, 2)
 
     if(voteAmount < 1){
       return res.status(400).json({ error:"invalid vote amount" })
@@ -64,20 +63,14 @@ export default async function handler(req, res){
       return res.status(401).json({ error:"invalid signature" })
     }
 
-    // ========================
-    // VERIFY MESSAGE FORMAT
-    // ========================
     if(!message.startsWith(`vote:${wallet}:${projectId}`)){
       return res.status(401).json({ error:"invalid message format" })
     }
 
-    // ========================
-    // REPLAY PROTECTION
-    // ========================
     const parts = message.split(":")
     const timestamp = parseInt(parts[3])
 
-    if(!timestamp || Date.now() - timestamp > 60000){
+    if(Date.now() - timestamp > 60000){
       return res.status(401).json({ error:"signature expired" })
     }
 
@@ -97,10 +90,9 @@ export default async function handler(req, res){
     const existingVotes = await voteCheck.json()
 
     // ========================
-    // COOLDOWN (24h GLOBAL)
+    // 🔥 24H GLOBAL COOLDOWN
     // ========================
     if(existingVotes.length > 0){
-
       const lastVote = Math.max(
         ...existingVotes.map(v => new Date(v.created_at).getTime())
       )
@@ -111,7 +103,7 @@ export default async function handler(req, res){
     }
 
     // ========================
-    // 🔥 PER-PROJECT LIMIT (MAX 2)
+    // 🔥 MAX 2 VOTES PER PROJECT
     // ========================
     const userProjectVotes = existingVotes
       .filter(v => v.project_id === projectId)
@@ -119,6 +111,10 @@ export default async function handler(req, res){
 
     if(userProjectVotes >= 2){
       return res.status(403).json({ error:"max votes reached for this project" })
+    }
+
+    if(userProjectVotes + voteAmount > 2){
+      return res.status(403).json({ error:"vote limit exceeded" })
     }
 
     // ========================
@@ -129,8 +125,7 @@ export default async function handler(req, res){
       headers:{
         "Content-Type":"application/json",
         apikey: KEY,
-        Authorization:`Bearer ${KEY}`,
-        Prefer:"resolution=merge-duplicates"
+        Authorization:`Bearer ${KEY}`
       },
       body: JSON.stringify({
         wallet,
@@ -141,7 +136,7 @@ export default async function handler(req, res){
     })
 
     // ========================
-    // INCREMENT PROJECT VOTES (OPTIONAL)
+    // UPDATE PROJECT VOTES
     // ========================
     await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_votes`,{
       method:"POST",
