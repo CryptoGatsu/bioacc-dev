@@ -140,18 +140,51 @@ window.autoConnect = async function(){
 async function loadWalletData(){
 
   try{
-    if(typeof getTokenBalance === "function" && typeof TOKENS_PER_VOTE !== "undefined"){
-      window.tokenBalance = await getTokenBalance(window.wallet)
-      window.voteBank = Math.floor(window.tokenBalance / TOKENS_PER_VOTE)
-    } else {
+
+    if(!window.wallet){
       window.tokenBalance = 0
       window.voteBank = 0
+      return
     }
-  }catch{
+
+    const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
+
+    const HELIUS_RPC = "https://rpc.helius.xyz/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
+
+    const res = await fetch(HELIUS_RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "getTokenAccountsByOwner",
+        params: [
+          window.wallet,
+          { mint: TOKEN_MINT },
+          { encoding: "jsonParsed" }
+        ]
+      })
+    })
+
+    const data = await res.json()
+
+    let balance = 0
+
+    if(data.result && data.result.value.length > 0){
+      balance = data.result.value[0].account.data.parsed.info.tokenAmount.uiAmount || 0
+    }
+
+    // 🔥 SAVE BALANCE
+    window.tokenBalance = balance
+
+    // 🔥 1 VOTE = 1M TOKENS
+    window.voteBank = Math.floor(balance / 1000000)
+
+  }catch(err){
+    console.log("helius token fetch error", err)
     window.tokenBalance = 0
     window.voteBank = 0
   }
-
 }
 
 // ========================
@@ -164,6 +197,17 @@ window.updateWalletUI = async function(forceFresh = false){
   }
 
   if(!window.wallet) return
+
+  // 🔥 HIDE CONNECT BUTTONS IF CONNECTED
+const connectBtns = document.querySelectorAll(".connect-btn")
+
+connectBtns.forEach(btn=>{
+  if(window.wallet){
+    btn.style.display = "none"
+  } else {
+    btn.style.display = "inline-block"
+  }
+})
 
   // 🔥 FORCE REFRESH AFTER SAVE
   if(forceFresh){
@@ -209,4 +253,28 @@ window.updateWalletUI = async function(forceFresh = false){
     el.textContent = name
   }
 
+}
+
+window.disconnectWallet = function(){
+
+  window.wallet = null
+  window.tokenBalance = 0
+  window.voteBank = 0
+
+  localStorage.removeItem("wallet")
+
+  // 🔥 CLEAR CACHE
+  window.profileCache = {}
+
+  // 🔥 CLEAR UI
+  const title = document.getElementById("walletTitle")
+  if(title) title.innerText = "wallet"
+
+  const status = document.getElementById("walletStatus")
+  if(status) status.innerText = ""
+
+  const navProfile = document.getElementById("navProfile")
+  if(navProfile) navProfile.remove()
+
+  updateWalletUI()
 }
