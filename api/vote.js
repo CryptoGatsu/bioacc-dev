@@ -8,6 +8,24 @@ export default async function handler(req, res){
 
   try{
 
+    // ========================
+    // GET (FETCH ALL VOTES)
+    // ========================
+    if(req.method === "GET"){
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/votes?select=*`,{
+        headers:{
+          apikey: KEY,
+          Authorization:`Bearer ${KEY}`
+        }
+      })
+
+      const data = await r.json()
+      return res.json(data)
+    }
+
+    // ========================
+    // POST (CAST VOTE)
+    // ========================
     if(req.method !== "POST"){
       return res.status(405).json({ error:"method not allowed" })
     }
@@ -20,9 +38,7 @@ export default async function handler(req, res){
       message
     } = req.body
 
-    // ========================
     // VALIDATION
-    // ========================
     if(!wallet || !projectId || !signature || !message){
       return res.status(400).json({ error:"missing fields" })
     }
@@ -33,9 +49,7 @@ export default async function handler(req, res){
       return res.status(400).json({ error:"invalid vote amount" })
     }
 
-    // ========================
     // VERIFY SIGNATURE
-    // ========================
     const isValid = nacl.sign.detached.verify(
       new TextEncoder().encode(message),
       new Uint8Array(signature),
@@ -46,16 +60,12 @@ export default async function handler(req, res){
       return res.status(401).json({ error:"invalid signature" })
     }
 
-    // ========================
-    // VERIFY MESSAGE FORMAT
-    // ========================
+    // VERIFY MESSAGE
     if(!message.startsWith(`vote:${wallet}:${projectId}`)){
       return res.status(401).json({ error:"invalid message format" })
     }
 
-    // ========================
     // REPLAY PROTECTION
-    // ========================
     const parts = message.split(":")
     const timestamp = parseInt(parts[3])
 
@@ -63,9 +73,7 @@ export default async function handler(req, res){
       return res.status(401).json({ error:"signature expired" })
     }
 
-    // ========================
-    // COOLDOWN CHECK (24h)
-    // ========================
+    // COOLDOWN (24h)
     const voteCheck = await fetch(
       `${SUPABASE_URL}/rest/v1/votes?wallet=eq.${wallet}&select=*`,
       {
@@ -79,16 +87,16 @@ export default async function handler(req, res){
     const existingVotes = await voteCheck.json()
 
     if(existingVotes.length > 0){
-      const lastVote = new Date(existingVotes[0].created_at).getTime()
+      const lastVote = Math.max(
+        ...existingVotes.map(v => new Date(v.created_at).getTime())
+)
 
       if(Date.now() - lastVote < 86400000){
         return res.status(403).json({ error:"already voted today" })
       }
     }
 
-    // ========================
     // SAVE VOTE
-    // ========================
     await fetch(`${SUPABASE_URL}/rest/v1/votes`,{
       method:"POST",
       headers:{
@@ -105,9 +113,7 @@ export default async function handler(req, res){
       })
     })
 
-    // ========================
     // INCREMENT PROJECT VOTES
-    // ========================
     await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_votes`,{
       method:"POST",
       headers:{
