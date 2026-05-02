@@ -278,7 +278,39 @@ window.updateWalletUI = async function(forceFresh = false){
       nav.appendChild(el)
     }
 
-    el.textContent = name
+    el.innerHTML = `
+  <span id="walletDisplay">${name} ▾</span>
+  <div id="walletDropdown" style="
+    display:none;
+    position:absolute;
+    right:0;
+    top:30px;
+    background:#000;
+    border:1px solid #222;
+    padding:10px;
+    width:180px;
+    z-index:9999;
+  ">
+    <div class="dropdown-item" onclick="copyWallet()">copy address</div>
+    <div class="dropdown-item" onclick="goProfile()">profile</div>
+    <div class="dropdown-item" onclick="disconnectWallet()" style="color:#ff4444;">disconnect</div>
+  </div>
+`
+
+el.style.position = "relative"
+
+// toggle dropdown
+el.onclick = (e)=>{
+  e.stopPropagation()
+  const dd = document.getElementById("walletDropdown")
+  dd.style.display = dd.style.display === "block" ? "none" : "block"
+}
+
+// close on outside click
+document.addEventListener("click", ()=>{
+  const dd = document.getElementById("walletDropdown")
+  if(dd) dd.style.display = "none"
+})
   }
 }
 
@@ -323,3 +355,12 @@ window.addEventListener("DOMContentLoaded", () => {
     })
   }
 })
+
+window.copyWallet = function(){
+  navigator.clipboard.writeText(window.wallet)
+  alert("wallet copied")
+}
+
+window.goProfile = function(){
+  window.location = "/profile?wallet=" + window.wallet
+}

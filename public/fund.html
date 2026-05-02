@@ -204,6 +204,16 @@ float:right;
 
 }
 
+.dropdown-item{
+  padding:8px;
+  cursor:pointer;
+  color:#7CFF3A;
+}
+
+.dropdown-item:hover{
+  background:#111;
+}
+
 
 
 </style>
@@ -365,11 +375,15 @@ async function loadProjects(){
           <div>votes: ${p.realVotes}</div>
 
           <input id="vote-${i}" placeholder="votes" />
-          <div onclick="vote('${p.id}', ${i})" style="cursor:pointer;color:#7CFF3A;">
-            vote
-          </div>
+          <div 
+          class="vote-btn" 
+          style="color:${window.voteBank > 0 ? '#7CFF3A' : '#555'}; cursor:${window.voteBank > 0 ? 'pointer' : 'not-allowed'};"
+          onclick="${window.voteBank > 0 ? `vote('${p.id}', ${i})` : ''}"
+          >
+          ${window.voteBank > 0 ? 'vote' : 'no votes'}
         </div>
-      `
+      </div>
+        `
     })
 
   }catch(err){
@@ -453,6 +467,11 @@ async function vote(projectId, localIndex){
   if(!window.wallet) return alert("connect wallet")
 
   const amount=parseInt(document.getElementById(`vote-${localIndex}`).value)||1
+
+  if(window.voteBank <= 0){
+  alert("no voting power")
+  return
+}
 
   if(amount < 1){
     return alert("invalid vote amount")
