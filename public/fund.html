@@ -359,6 +359,15 @@ document.getElementById("logo").addEventListener("change", e=>{
 // ========================
 async function loadProjects(){
 
+  const res = await fetch("/api/projects")
+
+if(!res.ok){
+  console.error("API failed")
+  return
+}
+
+const projects = await res.json()
+
   const container = document.getElementById("projects")
   if(!container) return
 

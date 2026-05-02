@@ -11,18 +11,25 @@ export default async function handler(req, res){
     // ========================
     // GET PROJECTS
     // ========================
-    if(req.method === "GET"){
+   if(req.method === "GET"){
 
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/projects?select=*`, {
-        headers:{
-          apikey: KEY,
-          Authorization:`Bearer ${KEY}`
-        }
-      })
-
-      const data = await r.json()
-      return res.json(data)
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/projects?select=*`, {
+    headers:{
+      apikey: KEY,
+      Authorization:`Bearer ${KEY}`
     }
+  })
+
+  const text = await r.text()
+
+  try{
+    const data = JSON.parse(text)
+    return res.json(data)
+  }catch{
+    console.error("SUPABASE BAD RESPONSE:", text)
+    return res.status(500).json({ error:"invalid supabase response" })
+  }
+}
 
     // ========================
     // SUBMIT PROJECT (SECURE)
@@ -111,7 +118,3 @@ export default async function handler(req, res){
     return res.status(500).json({ error:"server crash" })
   }
 }
-
-console.log("BODY:", req.body)
-console.log("SUPABASE_URL:", SUPABASE_URL)
-console.log("KEY exists:", !!KEY)
