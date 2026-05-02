@@ -235,6 +235,14 @@ if(oldTooltip) oldTooltip.remove()
     window.wallet = localStorage.getItem("wallet")
   }
 
+  // 🧹 hard cleanup safeguard
+const duplicates = document.querySelectorAll("#navProfile")
+if(duplicates.length > 1){
+  duplicates.forEach((el, i)=>{
+    if(i !== 0) el.remove()
+  })
+}
+
   // 🔥 SHOW CONNECT IF NOT CONNECTED
   if(!window.wallet){
     document.querySelectorAll(".connect-btn").forEach(btn=>{
