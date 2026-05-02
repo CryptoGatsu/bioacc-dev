@@ -310,36 +310,69 @@ const perPage=5
 // ========================
 async function loadProjects(){
 
-  const res = await fetch("/api/projects")
-  const projects = await res.json()
+  try{
 
-  // 🔥 SORT BY VOTES DESC
-  projects.sort((a,b)=>b.votes - a.votes)
+    // 🔥 GET PROJECTS
+    const res = await fetch("/api/projects")
+    const projects = await res.json()
 
-  const container = document.getElementById("projects")
-  container.innerHTML = ""
+    // 🔥 GET VOTES (REAL SOURCE OF TRUTH)
+    const votesRes = await fetch("/api/vote")
+    const votes = await votesRes.json()
 
-  projects.forEach((p,i)=>{
+    // 🔥 BUILD VOTE MAP
+    const voteMap = {}
 
-    container.innerHTML += `
-      <div class="project">
-        <h3>${p.name}</h3>
+    votes.forEach(v=>{
+      voteMap[v.project_id] = (voteMap[v.project_id] || 0) + v.amount
+    })
 
-        <div>
-          <a href="${p.github}" target="_blank">github</a>
-          <a href="${p.social}" target="_blank">social</a>
-          <a href="${p.website}" target="_blank">website</a>
+    // 🔥 ATTACH REAL VOTES TO PROJECTS
+    projects.forEach(p=>{
+      p.realVotes = voteMap[p.id] || 0
+    })
+
+    // 🔥 SORT BY REAL VOTES
+    projects.sort((a,b)=>b.realVotes - a.realVotes)
+
+    // 🔥 SAFE DOM GET (FIXES YOUR CRASH)
+    const container = document.getElementById("projects")
+
+    if(!container){
+      console.error("❌ #projects container not found")
+      return
+    }
+
+    container.innerHTML = ""
+
+    // 🔥 RENDER
+    projects.forEach((p,i)=>{
+
+      container.innerHTML += `
+        <div class="project">
+          <h3>${p.name}</h3>
+
+          <div>
+            <a href="${p.github || "#"}" target="_blank">github</a>
+            <a href="${p.social || "#"}" target="_blank">social</a>
+            <a href="${p.website || "#"}" target="_blank">website</a>
+          </div>
+
+          <p>${p.description || ""}</p>
+
+          <div>votes: ${p.realVotes}</div>
+
+          <input id="vote-${i}" placeholder="votes" />
+          <div onclick="vote('${p.id}', ${i})" style="cursor:pointer;color:#7CFF3A;">
+            vote
+          </div>
         </div>
+      `
+    })
 
-        <p>${p.description || ""}</p>
-
-        <div>votes: ${p.votes || 0}</div>
-
-        <input id="vote-${i}" placeholder="votes" />
-        <div onclick="vote('${p.id}', ${i})">vote</div>
-      </div>
-    `
-  })
+  }catch(err){
+    console.error("loadProjects error:", err)
+  }
 }
 
 // ========================
