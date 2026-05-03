@@ -70,6 +70,30 @@ window.getDisplayName = async function(wallet){
 }
 
 // ========================
+// LOAD PROFILE STATS
+// ========================
+
+async function loadProfileStats(wallet){
+
+  try{
+    const res = await fetch(`/api/profile-stats?wallet=${wallet}`)
+    const data = await res.json()
+
+    document.getElementById("statVotes").innerText = data.totalVotes || 0
+    document.getElementById("statProjects").innerText = (data.projectsVoted || []).length
+    document.getElementById("statManifesto").innerText = data.hasSigned ? "yes" : "no"
+
+    // 🔥 tokens (from wallet.js)
+    document.getElementById("statTokens").innerText = Math.floor(window.tokenBalance || 0)
+
+  }catch(err){
+    console.log("stats error", err)
+  }
+
+  await loadProfileStats(wallet)
+}
+
+// ========================
 // INIT
 // ========================
 let profileReady = false
@@ -89,4 +113,6 @@ async function initProfile(){
   window.backendData.profiles[window.wallet] = profile
 
 }
+
+
 
