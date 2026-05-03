@@ -141,7 +141,13 @@ const insertText = await insertRes.text()
 
 if(!insertRes.ok){
   console.error("INSERT FAILED STATUS:", insertRes.status)
-    console.error("INSERT FAILED BODY:", insertText)
+  console.error("INSERT FAILED BODY:", insertText)
+
+  // 🔥 STOP HERE (THIS IS WHAT YOU WERE MISSING)
+  return res.status(500).json({
+    error: "vote insert failed",
+    details: insertText
+  })
 }
 
 
@@ -164,14 +170,20 @@ const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_votes`,{
 const rpcText = await rpcRes.text()
 
 if(!rpcRes.ok){
-  console.error("RPC FAILED:", rpcText)
-  return res.status(500).json({ error:"increment failed" })
+  console.error("RPC FAILED STATUS:", rpcRes.status)
+  console.error("RPC FAILED BODY:", rpcText)
+
+  // 🔥 STOP EXECUTION + RETURN REAL ERROR
+  return res.status(500).json({
+    error: "increment failed",
+    details: rpcText
+  })
 }
 
-return res.json({ success:true })
-
-  }catch(err){
-    console.log("vote api error:", err)
-    return res.status(500).json({ error:"server crash" })
+  // ✅ success only if BOTH insert + rpc worked
+  return res.json({ success:true })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error:"server error" })
   }
 }
