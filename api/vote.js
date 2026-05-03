@@ -5,7 +5,7 @@ import { Connection, PublicKey } from "@solana/web3.js"
 const TOKENS_PER_VOTE = 1_000_000
 
 // 🔥 REPLACE THIS WITH YOUR TOKEN MINT
-const TOKEN_MINT = "YOUR_TOKEN_MINT_HERE"
+const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
 
 const connection = new Connection("https://api.mainnet-beta.solana.com")
 
