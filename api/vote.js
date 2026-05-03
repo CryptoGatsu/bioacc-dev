@@ -1,33 +1,46 @@
 import nacl from "tweetnacl"
 import bs58 from "bs58"
-import { Connection, PublicKey } from "@solana/web3.js"
 
 const TOKENS_PER_VOTE = 1_000_000
-
-// 🔥 REPLACE THIS WITH YOUR TOKEN MINT
 const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
 
-const connection = new Connection("https://api.mainnet-beta.solana.com")
+// 🔥 YOUR HELIUS KEY (already provided)
+const HELIUS_KEY = "abe30281-08a6-4f68-921b-4da93db84835"
 
 async function getTokenBalance(wallet){
   try{
-    const owner = new PublicKey(wallet)
-    const mint = new PublicKey(TOKEN_MINT)
+    const url = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}`
 
-    const accounts = await connection.getParsedTokenAccountsByOwner(owner,{
-      mint
+    const res = await fetch(url,{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        jsonrpc:"2.0",
+        id:"1",
+        method:"getTokenAccountsByOwner",
+        params:[
+          wallet,
+          { mint: TOKEN_MINT },
+          { encoding:"jsonParsed" }
+        ]
+      })
     })
 
-    if(accounts.value.length === 0){
+    const json = await res.json()
+
+    const accounts = json?.result?.value
+
+    if(!accounts || accounts.length === 0){
       return 0
     }
 
     const balance =
-      accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount || 0
+      accounts[0]?.account?.data?.parsed?.info?.tokenAmount?.uiAmount || 0
 
     return balance
+
   }catch(err){
-    console.error("token fetch error:", err)
+    console.error("helius token fetch error:", err)
     return 0
   }
 }
@@ -40,7 +53,7 @@ export default async function handler(req, res){
   try{
 
     // ========================
-    // GET ALL VOTES
+    // GET
     // ========================
     if(req.method === "GET"){
       const r = await fetch(`${SUPABASE_URL}/rest/v1/votes?select=*`,{
@@ -54,7 +67,7 @@ export default async function handler(req, res){
     }
 
     // ========================
-    // POST (CAST VOTE)
+    // POST
     // ========================
     if(req.method !== "POST"){
       return res.status(405).json({ error:"method not allowed" })
@@ -70,9 +83,6 @@ export default async function handler(req, res){
 
     console.log("VOTE BODY:", req.body)
 
-    // ========================
-    // VALIDATION
-    // ========================
     if(!wallet || !projectId || !signature || !message){
       return res.status(400).json({ error:"missing fields" })
     }
@@ -108,14 +118,14 @@ export default async function handler(req, res){
     }
 
     // ========================
-    // 🔥 LIVE TOKEN BALANCE
+    // 🔥 GET TOKEN BALANCE (HELIUS)
     // ========================
     const userTokens = await getTokenBalance(wallet)
 
     const totalVotingPower = Math.floor(userTokens / TOKENS_PER_VOTE)
 
     console.log("TOKENS:", userTokens)
-    console.log("VOTING POWER:", totalVotingPower)
+    console.log("VOTES AVAILABLE:", totalVotingPower)
 
     if(totalVotingPower <= 0){
       return res.status(403).json({ error:"no voting power" })
@@ -136,14 +146,11 @@ export default async function handler(req, res){
 
     const existingVotes = await voteCheck.json()
 
-    // ========================
-    // DAILY LIMIT
-    // ========================
     const now = Date.now()
 
-    const votesToday = existingVotes.filter(v => {
-      return (now - new Date(v.created_at).getTime()) < 86400000
-    })
+    const votesToday = existingVotes.filter(v =>
+      (now - new Date(v.created_at).getTime()) < 86400000
+    )
 
     const votesUsedToday = votesToday.reduce((sum,v)=>sum + v.amount, 0)
 
@@ -162,7 +169,7 @@ export default async function handler(req, res){
     const projectVotes = existingVotes.filter(v => v.project_id === projectId)
 
     if(projectVotes.length >= 2){
-      return res.status(403).json({ error:"max 2 vote actions per project" })
+      return res.status(403).json({ error:"max 2 votes per project" })
     }
 
     const lastProjectVote = projectVotes
@@ -174,15 +181,14 @@ export default async function handler(req, res){
     }
 
     // ========================
-    // SAVE VOTE
+    // INSERT VOTE
     // ========================
     const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/votes`,{
       method:"POST",
       headers:{
         "Content-Type":"application/json",
         apikey: KEY,
-        Authorization:`Bearer ${KEY}`,
-        Prefer:"return=representation"
+        Authorization:`Bearer ${KEY}`
       },
       body: JSON.stringify({
         wallet,
@@ -195,11 +201,8 @@ export default async function handler(req, res){
     const insertText = await insertRes.text()
 
     if(!insertRes.ok){
-      console.error("INSERT FAILED:", insertText)
-      return res.status(500).json({
-        error: "vote insert failed",
-        details: insertText
-      })
+      console.error("INSERT ERROR:", insertText)
+      return res.status(500).json({ error:"vote insert failed" })
     }
 
     // ========================
@@ -218,14 +221,8 @@ export default async function handler(req, res){
       })
     })
 
-    const rpcText = await rpcRes.text()
-
     if(!rpcRes.ok){
-      console.error("RPC FAILED:", rpcText)
-      return res.status(500).json({
-        error: "increment failed",
-        details: rpcText
-      })
+      return res.status(500).json({ error:"increment failed" })
     }
 
     return res.json({
@@ -233,8 +230,13 @@ export default async function handler(req, res){
       remainingVotes: remainingVotes - voteAmount
     })
 
-  } catch (err) {
-    console.error("vote api error:", err)
-    return res.status(500).json({ error:"server error" })
+  }catch(err){
+    console.error("FATAL ERROR:", err)
+
+    // 🔥 ALWAYS RETURN JSON (fixes your frontend crash)
+    return res.status(500).json({
+      error:"server crash",
+      message: err.message
+    })
   }
 }
