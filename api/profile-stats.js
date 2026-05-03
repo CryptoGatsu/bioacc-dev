@@ -1,5 +1,3 @@
-import fetch from "node-fetch"
-
 export default async function handler(req, res){
 
   const SUPABASE_URL = process.env.SUPABASE_URL
@@ -16,8 +14,10 @@ export default async function handler(req, res){
       return res.status(400).json({ error:"no wallet" })
     }
 
+    console.log("PROFILE STATS START:", wallet)
+
     // ========================
-    // 🔥 GET TOKEN BALANCE (FIX)
+    // TOKEN BALANCE (SAFE)
     // ========================
     async function getTokenBalance(wallet){
 
@@ -39,18 +39,14 @@ export default async function handler(req, res){
 
         const data = await r.json()
 
-        if(
-          data.result &&
-          data.result.value &&
-          data.result.value.length > 0
-        ){
+        if(data?.result?.value?.length > 0){
           return data.result.value[0].account.data.parsed.info.tokenAmount.uiAmount || 0
         }
 
         return 0
 
       }catch(err){
-        console.log("helius error:", err)
+        console.log("HELIUS ERROR:", err)
         return 0
       }
     }
@@ -69,13 +65,14 @@ export default async function handler(req, res){
     )
 
     const voteText = await voteRes.text()
+    console.log("VOTES RAW:", voteText)
 
     let votes = []
     try{
       votes = JSON.parse(voteText)
-    }catch{
-      console.error("votes parse error:", voteText)
-      return res.status(500).json({ error:"votes failed" })
+    }catch(err){
+      console.log("VOTES PARSE ERROR:", voteText)
+      return res.status(500).json({ error:"votes parse failed" })
     }
 
     // ========================
@@ -97,7 +94,7 @@ export default async function handler(req, res){
     try{
       manifesto = JSON.parse(manText)
     }catch{
-      console.error("manifesto parse error:", manText)
+      console.log("MANIFESTO PARSE ERROR:", manText)
     }
 
     // ========================
@@ -114,7 +111,9 @@ export default async function handler(req, res){
     const userTokens = await getTokenBalance(wallet)
     const maxVotes = Math.floor(userTokens / 1_000_000)
 
-    return res.json({
+    console.log("TOKENS:", userTokens, "MAX VOTES:", maxVotes)
+
+    return res.status(200).json({
       totalVotes,
       projectsVoted,
       hasSigned: manifesto.length > 0,
@@ -123,7 +122,8 @@ export default async function handler(req, res){
     })
 
   }catch(err){
-    console.log("profile stats error:", err)
+    console.log("PROFILE STATS FATAL:", err)
+
     return res.status(500).json({
       error:"server crash",
       details: err.message
