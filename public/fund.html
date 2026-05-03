@@ -408,7 +408,7 @@ const projects = await res.json()
 
 projects.forEach((p,i)=>{
 
-  const disabled = window.voteBank <= 0
+  const disabled = (window.remainingVotes ?? window.voteBank) <= 0
 
   container.innerHTML += `
     <div class="project ${i===0?'top1':i===1?'top2':i===2?'top3':''}">
@@ -542,6 +542,10 @@ async function vote(projectId, index){
 
     const amount = parseInt(document.getElementById(`vote-${index}`).value) || 1
 
+    if(amount > (window.remainingVotes ?? window.voteBank)){
+  return alert("not enough voting power")
+}
+
     const message = `vote:${window.wallet}:${projectId}:${Date.now()}`
 
     // 🔥 SIGN MESSAGE
@@ -583,8 +587,23 @@ async function vote(projectId, index){
 
     console.log("vote success:", data)
 
-    // 🔥 reload projects so votes update
-    loadProjects()
+    // 🔥 instant UI update (optimistic)
+window.remainingVotes = Math.max(0, (window.remainingVotes ?? window.voteBank) - amount)
+
+// 🔥 update header immediately
+const status = document.getElementById("walletStatus")
+if(status){
+  status.innerHTML = status.innerHTML.replace(
+    /(\d+)\s*\/\s*(\d+)/,
+    (_, used, max) => `${parseInt(used) + amount} / ${max}`
+  )
+}
+
+// 🔥 refresh true data (source of truth)
+await window.refreshVotingUI?.()
+
+// 🔥 reload projects (updates votes + disables buttons)
+loadProjects()
 
   }catch(err){
     console.log("vote error:", err)

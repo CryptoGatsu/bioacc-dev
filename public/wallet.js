@@ -4,6 +4,7 @@
 window.wallet = null
 window.tokenBalance = 0
 window.voteBank = 0
+window.remainingVotes = 0
 window.backendData = null
 window.profileCache = {}
 
@@ -42,6 +43,7 @@ window.resetWalletState = function(){
   window.wallet = null
   window.tokenBalance = 0
   window.voteBank = 0
+  window.remainingVotes = 0
   window.profileCache = {}
 
   localStorage.removeItem("wallet")
@@ -232,16 +234,19 @@ async function loadHeaderStats(){
     const used = data.totalVotes || 0
     const max = data.maxVotes || 0
 
+    // 🔥 TRACK REMAINING VOTES
+    window.remainingVotes = Math.max(0, max - used)
+
     const percent = max === 0 ? 0 : used / max
 
-    let color = "#6eff3e" // green default
+    let color = "#6eff3e"
 
     if(used >= max){
-      color = "#6eff3e" // full = green
+      color = "#6eff3e"
     } else if(percent > 0.7){
-      color = "#ff3e3e" // near limit = red
+      color = "#ff3e3e"
     } else if(percent > 0.4){
-      color = "#ffd93e" // mid = yellow
+      color = "#ffd93e"
     }
 
     const status = document.getElementById("walletStatus")
@@ -253,8 +258,7 @@ async function loadHeaderStats(){
       status.innerHTML = `
         User: ${name}
         | Tokens: ${Math.floor(window.tokenBalance).toLocaleString()}
-        | Votes: 
-        <span style="color:${color}; font-weight:bold;">
+        | Votes: <span style="color:${color}; font-weight:bold;">
           ${used} / ${max}
         </span>
         | <span id="voteTimer"></span>
@@ -286,9 +290,9 @@ function startVoteCountdown(lastVoteTime){
   function update(){
 
     if(!lastVoteTime){
-      el.innerText = "Vote Reset: ready"
-      return
-    }
+  el.innerText = ""
+  return
+  }
 
     const now = Date.now()
     const diff = 86400000 - (now - new Date(lastVoteTime).getTime())
@@ -465,4 +469,14 @@ window.copyWallet = function(){
 
 window.goProfile = function(){
   window.location = "/profile?wallet=" + window.wallet
+}
+window.refreshVotingUI = async function(){
+
+  await loadWalletData()
+  await window.updateWalletUI(true)
+
+  // 🔥 refresh project list if exists
+  if(window.loadProjects){
+    window.loadProjects()
+  }
 }
