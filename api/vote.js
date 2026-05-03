@@ -118,40 +118,57 @@ export default async function handler(req, res){
       return res.status(403).json({ error:"vote limit exceeded" })
     }
 
-    // ========================
-    // SAVE VOTE
-    // ========================
-    await fetch(`${SUPABASE_URL}/rest/v1/votes`,{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        apikey: KEY,
-        Authorization:`Bearer ${KEY}`
-      },
-      body: JSON.stringify({
-        wallet,
-        project_id: projectId,
-        amount: voteAmount,
-        created_at: new Date().toISOString()
-      })
-    })
+// ========================
+// SAVE VOTE
+// ========================
+const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/votes`,{
+  method:"POST",
+  headers:{
+    "Content-Type":"application/json",
+    apikey: KEY,
+    Authorization:`Bearer ${KEY}`,
+    Prefer:"return=representation"
+  },
+  body: JSON.stringify({
+    wallet,
+    project_id: projectId,
+    amount: voteAmount,
+    created_at: new Date().toISOString()
+  })
+})
 
-    // ========================
-    // UPDATE PROJECT VOTES
-    // ========================
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_votes`,{
-      method:"POST",
-      headers:{
-        apikey: KEY,
-        Authorization:`Bearer ${KEY}`
-      },
-      body: JSON.stringify({
-        project_id: projectId,
-        vote_amount: voteAmount
-      })
-    })
+const insertText = await insertRes.text()
 
-    return res.json({ success:true })
+if(!insertRes.ok){
+  console.error("INSERT FAILED:", insertText)
+  return res.status(500).json({ error:"vote insert failed" })
+}
+
+
+// ========================
+// INCREMENT PROJECT VOTES
+// ========================
+const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_votes`,{
+  method:"POST",
+  headers:{
+    "Content-Type":"application/json",
+    apikey: KEY,
+    Authorization:`Bearer ${KEY}`
+  },
+  body: JSON.stringify({
+    project_id: projectId,
+    vote_amount: voteAmount
+  })
+})
+
+const rpcText = await rpcRes.text()
+
+if(!rpcRes.ok){
+  console.error("RPC FAILED:", rpcText)
+  return res.status(500).json({ error:"increment failed" })
+}
+
+return res.json({ success:true })
 
   }catch(err){
     console.log("vote api error:", err)
