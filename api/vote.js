@@ -140,8 +140,8 @@ const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/votes`,{
 const insertText = await insertRes.text()
 
 if(!insertRes.ok){
-  console.error("INSERT FAILED:", insertText)
-  return res.status(500).json({ error:"vote insert failed" })
+  console.error("INSERT FAILED STATUS:", insertRes.status)
+    console.error("INSERT FAILED BODY:", insertText)
 }
 
 
