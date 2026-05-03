@@ -234,18 +234,31 @@ async function loadHeaderStats(){
 
     const percent = max === 0 ? 0 : used / max
 
-    let color = "#6eff3e"
-    if(percent > 0.7) color = "#ff3e3e"
-    else if(percent > 0.4) color = "#ffd93e"
+    let color = "#6eff3e" // green default
+
+    if(used >= max){
+      color = "#6eff3e" // full = green
+    } else if(percent > 0.7){
+      color = "#ff3e3e" // near limit = red
+    } else if(percent > 0.4){
+      color = "#ffd93e" // mid = yellow
+    }
 
     const status = document.getElementById("walletStatus")
 
     if(status){
-      status.innerHTML =
-        `wallet: ${window.wallet.slice(0,4)}...${window.wallet.slice(-4)} 
-        | votes: <span style="color:${color}; font-weight:bold;">
-        ${used} / ${max}
-        </span>`
+
+      const name = await window.getDisplayName(window.wallet)
+
+      status.innerHTML = `
+        User: ${name}
+        | Tokens: ${Math.floor(window.tokenBalance).toLocaleString()}
+        | Votes: 
+        <span style="color:${color}; font-weight:bold;">
+          ${used} / ${max}
+        </span>
+        | <span id="voteTimer"></span>
+      `
     }
 
     startVoteCountdown(data.lastVoteTime)
@@ -258,18 +271,30 @@ async function loadHeaderStats(){
 // ========================
 // 🔥 COUNTDOWN TIMER
 // ========================
+let voteTimerInterval = null
+
 function startVoteCountdown(lastVoteTime){
 
   const el = document.getElementById("voteTimer")
-  if(!el || !lastVoteTime) return
+  if(!el) return
+
+  // 🔥 prevent duplicate timers
+  if(voteTimerInterval){
+    clearInterval(voteTimerInterval)
+  }
 
   function update(){
+
+    if(!lastVoteTime){
+      el.innerText = "Vote Reset: ready"
+      return
+    }
 
     const now = Date.now()
     const diff = 86400000 - (now - new Date(lastVoteTime).getTime())
 
     if(diff <= 0){
-      el.innerText = "votes reset: ready"
+      el.innerText = "Vote Reset: ready"
       return
     }
 
@@ -277,11 +302,11 @@ function startVoteCountdown(lastVoteTime){
     const mins = Math.floor((diff % 3600000) / 60000)
     const secs = Math.floor((diff % 60000) / 1000)
 
-    el.innerText = `reset in: ${hrs}h ${mins}m ${secs}s`
+    el.innerText = `Vote Reset: ${hrs}h ${mins}m ${secs}s`
   }
 
   update()
-  setInterval(update, 1000)
+  voteTimerInterval = setInterval(update, 1000)
 }
 
 // ========================
