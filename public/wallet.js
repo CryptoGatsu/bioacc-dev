@@ -275,7 +275,7 @@ async function loadHeaderStats(){
 // ========================
 // 🔥 COUNTDOWN TIMER
 // ========================
-let voteTimerInterval = null
+window.voteTimerInterval = null
 
 function startVoteCountdown(lastVoteTime){
 
@@ -283,8 +283,8 @@ function startVoteCountdown(lastVoteTime){
   if(!el) return
 
   // 🔥 prevent duplicate timers
-  if(voteTimerInterval){
-    clearInterval(voteTimerInterval)
+  if(window.voteTimerInterval){
+    clearInterval(window.voteTimerInterval)
   }
 
   function update(){
@@ -310,7 +310,7 @@ function startVoteCountdown(lastVoteTime){
   }
 
   update()
-  voteTimerInterval = setInterval(update, 1000)
+  window.voteTimerInterval = setInterval(update, 1000)
 }
 
 // ========================
@@ -421,16 +421,49 @@ window.updateWalletUI = async function(forceFresh = false){
 // DISCONNECT
 // ========================
 window.disconnectWallet = function(){
-  window.wallet = null
-  localStorage.removeItem("wallet")
 
+  // 🔥 CLEAR STATE
+  window.wallet = null
+  window.tokenBalance = 0
+  window.voteBank = 0
+  window.remainingVotes = 0
+
+  localStorage.removeItem("wallet")
+  window.profileCache = {}
+
+  // 🔥 STOP TIMER
+  if(window.voteTimerInterval){
+    clearInterval(window.voteTimerInterval)
+    window.voteTimerInterval = null
+  }
+
+  // 🔥 CLEAR HEADER UI
+  const status = document.getElementById("walletStatus")
+  if(status){
+    status.innerHTML = ""
+  }
+
+  const timer = document.getElementById("voteTimer")
+  if(timer){
+    timer.innerText = ""
+  }
+
+  const title = document.getElementById("walletTitle")
+  if(title){
+    title.innerText = "wallet"
+  }
+
+  // 🔥 REMOVE NAV DROPDOWN
   const el = document.getElementById("navProfile")
   if(el) el.remove()
 
   const dd = document.getElementById("walletDropdown")
   if(dd) dd.remove()
 
-  updateWalletUI()
+  // 🔥 SHOW CONNECT BUTTONS AGAIN
+  document.querySelectorAll(".connect-btn").forEach(btn=>{
+    btn.style.display = "inline-block"
+  })
 }
 
 // ========================
