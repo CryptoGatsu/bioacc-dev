@@ -35,7 +35,7 @@ window.clearProfileCache = function(wallet){
 }
 
 // ========================
-// RESET WALLET STATE (🔥 FIX)
+// RESET WALLET STATE
 // ========================
 window.resetWalletState = function(){
 
@@ -46,9 +46,11 @@ window.resetWalletState = function(){
 
   localStorage.removeItem("wallet")
 
-  // UI RESET
   const status = document.getElementById("walletStatus")
   if(status) status.innerText = ""
+
+  const timer = document.getElementById("voteTimer")
+  if(timer) timer.innerText = ""
 
   const title = document.getElementById("walletTitle")
   if(title) title.innerText = "wallet"
@@ -56,7 +58,6 @@ window.resetWalletState = function(){
   const navProfile = document.getElementById("navProfile")
   if(navProfile) navProfile.remove()
 
-  // SHOW CONNECT BUTTONS
   document.querySelectorAll(".connect-btn").forEach(btn=>{
     btn.style.display = "inline-block"
   })
@@ -120,7 +121,6 @@ window.connectWallet = async function(){
     const res = await provider.connect()
     const newWallet = res.publicKey.toString()
 
-    // 🔥 RESET IF SWITCHING
     if(window.wallet && window.wallet !== newWallet){
       window.resetWalletState()
     }
@@ -132,7 +132,6 @@ window.connectWallet = async function(){
     await loadWalletData()
     await window.updateWalletUI(true)
 
-    // HIDE CONNECT BUTTONS
     document.querySelectorAll(".connect-btn").forEach(btn=>{
       btn.style.display = "none"
     })
@@ -183,7 +182,6 @@ async function loadWalletData(){
     }
 
     const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
-
     const HELIUS_RPC = "https://rpc.helius.xyz/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
 
     const res = await fetch(HELIUS_RPC, {
@@ -220,30 +218,94 @@ async function loadWalletData(){
 }
 
 // ========================
+// 🔥 HEADER STATS + TIMER
+// ========================
+async function loadHeaderStats(){
+
+  if(!window.wallet) return
+
+  try{
+
+    const res = await fetch(`/api/profile-stats?wallet=${window.wallet}`)
+    const data = await res.json()
+
+    const used = data.totalVotes || 0
+    const max = data.maxVotes || 0
+
+    const percent = max === 0 ? 0 : used / max
+
+    let color = "#6eff3e"
+    if(percent > 0.7) color = "#ff3e3e"
+    else if(percent > 0.4) color = "#ffd93e"
+
+    const status = document.getElementById("walletStatus")
+
+    if(status){
+      status.innerHTML =
+        `wallet: ${window.wallet.slice(0,4)}...${window.wallet.slice(-4)} 
+        | votes: <span style="color:${color}; font-weight:bold;">
+        ${used} / ${max}
+        </span>`
+    }
+
+    startVoteCountdown(data.lastVoteTime)
+
+  }catch(err){
+    console.log("header stats error", err)
+  }
+}
+
+// ========================
+// 🔥 COUNTDOWN TIMER
+// ========================
+function startVoteCountdown(lastVoteTime){
+
+  const el = document.getElementById("voteTimer")
+  if(!el || !lastVoteTime) return
+
+  function update(){
+
+    const now = Date.now()
+    const diff = 86400000 - (now - new Date(lastVoteTime).getTime())
+
+    if(diff <= 0){
+      el.innerText = "votes reset: ready"
+      return
+    }
+
+    const hrs = Math.floor(diff / 3600000)
+    const mins = Math.floor((diff % 3600000) / 60000)
+    const secs = Math.floor((diff % 60000) / 1000)
+
+    el.innerText = `reset in: ${hrs}h ${mins}m ${secs}s`
+  }
+
+  update()
+  setInterval(update, 1000)
+}
+
+// ========================
 // UI UPDATE
 // ========================
 window.updateWalletUI = async function(forceFresh = false){
 
-  // 🧹 CLEAN OLD UI FIRST
-const old = document.getElementById("navProfile")
-if(old) old.remove()
+  const old = document.getElementById("navProfile")
+  if(old) old.remove()
 
-const oldTooltip = document.getElementById("profileTooltip")
-if(oldTooltip) oldTooltip.remove()
+  const oldTooltip = document.getElementById("profileTooltip")
+  if(oldTooltip) oldTooltip.remove()
 
   if(!window.wallet){
     window.wallet = localStorage.getItem("wallet")
   }
 
-  // 🧹 hard cleanup safeguard
-const duplicates = document.querySelectorAll("#navProfile")
-if(duplicates.length > 1){
-  duplicates.forEach((el, i)=>{
-    if(i !== 0) el.remove()
-  })
-}
+  const duplicates = document.querySelectorAll("#navProfile")
+  if(duplicates.length > 1){
+    duplicates.forEach((el, i)=>{
+      if(i !== 0) el.remove()
+    })
+  }
 
-  // 🔥 SHOW CONNECT IF NOT CONNECTED
   if(!window.wallet){
     document.querySelectorAll(".connect-btn").forEach(btn=>{
       btn.style.display = "inline-block"
@@ -251,7 +313,6 @@ if(duplicates.length > 1){
     return
   }
 
-  // 🔥 HIDE CONNECT IF CONNECTED
   document.querySelectorAll(".connect-btn").forEach(btn=>{
     btn.style.display = "none"
   })
@@ -273,59 +334,58 @@ if(duplicates.length > 1){
     title.innerText = name
   }
 
-  // -------- NAV PROFILE BUTTON (FIXED) --------
-const nav = document.querySelector(".nav-links") || document.querySelector(".nav div:last-child")
+  // 🔥 LOAD HEADER STATS
+  await loadHeaderStats()
 
-if(nav){
+  const nav = document.querySelector(".nav-links") || document.querySelector(".nav div:last-child")
 
-  let el = document.getElementById("navProfile")
+  if(nav){
 
-  // ✅ CREATE ONLY ONCE
-  if(!el){
-    el = document.createElement("span")
-    el.id = "navProfile"
-    el.className = "profile-link"
-    el.style.marginLeft = "20px"
-    el.style.cursor = "pointer"
-    el.style.position = "relative"
+    let el = document.getElementById("navProfile")
 
-    nav.appendChild(el)
+    if(!el){
+      el = document.createElement("span")
+      el.id = "navProfile"
+      el.className = "profile-link"
+      el.style.marginLeft = "20px"
+      el.style.cursor = "pointer"
+      el.style.position = "relative"
+
+      nav.appendChild(el)
+    }
+
+    const name = await window.getDisplayName(window.wallet)
+
+    el.innerHTML = `
+      <span>${name} ▾</span>
+      <div id="walletDropdown" style="
+        display:none;
+        position:absolute;
+        right:0;
+        top:30px;
+        background:#000;
+        border:1px solid #222;
+        padding:10px;
+        width:180px;
+        z-index:9999;
+      ">
+        <div class="dropdown-item" onclick="copyWallet()">copy address</div>
+        <div class="dropdown-item" onclick="goProfile()">profile</div>
+        <div class="dropdown-item" onclick="disconnectWallet()" style="color:#ff4444;">disconnect</div>
+      </div>
+    `
+
+    el.onclick = (e)=>{
+      e.stopPropagation()
+      const dd = el.querySelector("#walletDropdown")
+      dd.style.display = dd.style.display === "block" ? "none" : "block"
+    }
+
+    document.addEventListener("click", ()=>{
+      const dd = el.querySelector("#walletDropdown")
+      if(dd) dd.style.display = "none"
+    })
   }
-
-  const name = await window.getDisplayName(window.wallet)
-
-  // ✅ ALWAYS UPDATE CONTENT (NOT RECREATE)
-  el.innerHTML = `
-    <span>${name} ▾</span>
-    <div id="walletDropdown" style="
-      display:none;
-      position:absolute;
-      right:0;
-      top:30px;
-      background:#000;
-      border:1px solid #222;
-      padding:10px;
-      width:180px;
-      z-index:9999;
-    ">
-      <div class="dropdown-item" onclick="copyWallet()">copy address</div>
-      <div class="dropdown-item" onclick="goProfile()">profile</div>
-      <div class="dropdown-item" onclick="disconnectWallet()" style="color:#ff4444;">disconnect</div>
-    </div>
-  `
-
-  // toggle dropdown
-  el.onclick = (e)=>{
-    e.stopPropagation()
-    const dd = el.querySelector("#walletDropdown")
-    dd.style.display = dd.style.display === "block" ? "none" : "block"
-  }
-
-  document.addEventListener("click", ()=>{
-    const dd = el.querySelector("#walletDropdown")
-    if(dd) dd.style.display = "none"
-  })
-}
 }
 
 // ========================
@@ -335,7 +395,6 @@ window.disconnectWallet = function(){
   window.wallet = null
   localStorage.removeItem("wallet")
 
-  // 🧹 clear UI
   const el = document.getElementById("navProfile")
   if(el) el.remove()
 
@@ -346,7 +405,7 @@ window.disconnectWallet = function(){
 }
 
 // ========================
-// LISTEN FOR WALLET CHANGES (🔥 CRITICAL FIX)
+// LISTEN FOR WALLET CHANGES
 // ========================
 window.addEventListener("DOMContentLoaded", () => {
 
@@ -368,7 +427,6 @@ window.addEventListener("DOMContentLoaded", () => {
         }
 
       } else {
-        // 🔥 DISCONNECTED
         window.resetWalletState()
       }
     })

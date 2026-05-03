@@ -63,10 +63,14 @@ export default async function handler(req, res){
 
     const projectsVoted = [...new Set(votes.map(v => v.project_id))]
 
+    const userTokens = await getTokenBalance(wallet)
+const maxVotes = Math.floor(userTokens / 1_000_000)
+
     return res.json({
       totalVotes,
       projectsVoted,
-      hasSigned: manifesto.length > 0
+      hasSigned: manifesto.length > 0,
+      maxVotes
     })
 
   }catch(err){
