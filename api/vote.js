@@ -1,6 +1,8 @@
 import nacl from "tweetnacl"
 import bs58 from "bs58"
 
+const TOKENS_PER_VOTE = 1_000_000
+
 export default async function handler(req, res){
 
   const SUPABASE_URL = process.env.SUPABASE_URL
@@ -77,7 +79,7 @@ export default async function handler(req, res){
     }
 
     // ========================
-    // FETCH USER PROFILE (VOTING POWER)
+    // FETCH USER TOKENS
     // ========================
     const profileRes = await fetch(
       `${SUPABASE_URL}/rest/v1/profiles?wallet=eq.${wallet}&select=tokens`,
@@ -92,8 +94,11 @@ export default async function handler(req, res){
     const profileData = await profileRes.json()
     const userTokens = profileData?.[0]?.tokens || 0
 
-    if(voteAmount > userTokens){
-      return res.status(403).json({ error:"not enough voting power" })
+    // 🔥 CONVERT TOKENS → VOTES
+    const totalVotingPower = Math.floor(userTokens / TOKENS_PER_VOTE)
+
+    if(totalVotingPower <= 0){
+      return res.status(403).json({ error:"no voting power" })
     }
 
     // ========================
@@ -112,16 +117,36 @@ export default async function handler(req, res){
     const existingVotes = await voteCheck.json()
 
     // ========================
+    // 🔥 DAILY VOTING LIMIT (GLOBAL)
+    // ========================
+    const now = Date.now()
+
+    const votesToday = existingVotes.filter(v => {
+      return (now - new Date(v.created_at).getTime()) < 86400000
+    })
+
+    const votesUsedToday = votesToday.reduce((sum,v)=>sum + v.amount, 0)
+
+    const remainingVotes = totalVotingPower - votesUsedToday
+
+    if(voteAmount > remainingVotes){
+      return res.status(403).json({
+        error:"not enough voting power",
+        remainingVotes
+      })
+    }
+
+    // ========================
     // PROJECT-SPECIFIC RULES
     // ========================
     const projectVotes = existingVotes.filter(v => v.project_id === projectId)
 
-    // 🔥 max 2 vote actions per project
+    // 🔥 max 2 vote actions per project (not total amount)
     if(projectVotes.length >= 2){
-      return res.status(403).json({ error:"max 2 votes per project" })
+      return res.status(403).json({ error:"max 2 vote actions per project" })
     }
 
-    // 🔥 1 vote per project per 24h
+    // 🔥 1 vote action per 24h per project
     const lastProjectVote = projectVotes
       .map(v => new Date(v.created_at).getTime())
       .sort((a,b)=>b-a)[0]
@@ -152,9 +177,7 @@ export default async function handler(req, res){
     const insertText = await insertRes.text()
 
     if(!insertRes.ok){
-      console.error("INSERT FAILED STATUS:", insertRes.status)
-      console.error("INSERT FAILED BODY:", insertText)
-
+      console.error("INSERT FAILED:", insertText)
       return res.status(500).json({
         error: "vote insert failed",
         details: insertText
@@ -180,16 +203,17 @@ export default async function handler(req, res){
     const rpcText = await rpcRes.text()
 
     if(!rpcRes.ok){
-      console.error("RPC FAILED STATUS:", rpcRes.status)
-      console.error("RPC FAILED BODY:", rpcText)
-
+      console.error("RPC FAILED:", rpcText)
       return res.status(500).json({
         error: "increment failed",
         details: rpcText
       })
     }
 
-    return res.json({ success:true })
+    return res.json({
+      success:true,
+      remainingVotes: remainingVotes - voteAmount
+    })
 
   } catch (err) {
     console.error("vote api error:", err)
