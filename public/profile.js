@@ -75,29 +75,50 @@ window.getDisplayName = async function(wallet){
 
 async function loadProfileStats(wallet){
 
+  if(!wallet){
+    console.log("no wallet for stats")
+    return
+  }
+
   try{
+    console.log("loading stats for:", wallet)
+
     const res = await fetch(`/api/profile-stats?wallet=${wallet}`)
-    const data = await res.json()
+
+    const text = await res.text()
+
+    let data
+    try{
+      data = JSON.parse(text)
+    }catch{
+      console.error("stats parse failed:", text)
+      return
+    }
+
+    console.log("stats data:", data)
 
     document.getElementById("statVotes").innerText = data.totalVotes || 0
     document.getElementById("statProjects").innerText = (data.projectsVoted || []).length
     document.getElementById("statManifesto").innerText = data.hasSigned ? "yes" : "no"
 
-    // 🔥 tokens (from wallet.js)
-    document.getElementById("statTokens").innerText = Math.floor(window.tokenBalance || 0)
+    // tokens
+    document.getElementById("statTokens").innerText =
+      Math.floor(window.tokenBalance || 0)
 
   }catch(err){
-    console.log("stats error", err)
+    console.log("stats error:", err)
   }
-
-  await loadProfileStats(wallet)
 }
 
 // ========================
-// INIT
+// INIT STATE
 // ========================
 let profileReady = false
 
+
+// ========================
+// LOAD PROFILE + STATS
+// ========================
 async function initProfile(){
 
   if(profileReady) return
@@ -105,14 +126,58 @@ async function initProfile(){
 
   profileReady = true
 
-  // 🔥 ALWAYS LOAD FRESH PROFILE
-  const profile = await window.getProfile(window.wallet)
+  try{
 
-  // 🔥 STORE IN GLOBAL BACKEND (optional but useful)
-  if(!window.backendData) window.backendData = { profiles:{} }
-  window.backendData.profiles[window.wallet] = profile
+    // 🔥 LOAD PROFILE
+    const profile = await window.getProfile(window.wallet)
 
+    // 🔥 LOAD STATS
+    await loadProfileStats(window.wallet)
+
+    // 🔥 STORE GLOBALLY
+    if(!window.backendData) window.backendData = { profiles:{} }
+    window.backendData.profiles[window.wallet] = profile
+
+  }catch(err){
+    console.log("initProfile error:", err)
+  }
 }
+
+
+// ========================
+// RESET WHEN WALLET CHANGES
+// ========================
+function watchWalletChange(){
+
+  let lastWallet = null
+
+  setInterval(() => {
+
+    if(window.wallet !== lastWallet){
+      lastWallet = window.wallet
+      profileReady = false
+
+      if(window.wallet){
+        initProfile()
+      }
+    }
+
+  }, 500)
+}
+
+
+// ========================
+// PAGE LOAD
+// ========================
+window.addEventListener("load", () => {
+
+  // slight delay for wallet injection
+  setTimeout(() => {
+    initProfile()
+  }, 300)
+
+  watchWalletChange()
+})
 
 
 
