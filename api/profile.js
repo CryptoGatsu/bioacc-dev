@@ -9,54 +9,49 @@ export default async function handler(req, res){
   try{
 
     // ========================
-    // GET PROJECTS
+    // GET PROFILE
     // ========================
     if(req.method === "GET"){
 
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/projects?select=*`, {
-        headers:{
-          apikey: KEY,
-          Authorization:`Bearer ${KEY}`
-        }
-      })
+      const { wallet } = req.query
 
-      const text = await r.text()
-
-      try{
-        return res.json(JSON.parse(text))
-      }catch{
-        console.error("bad supabase response:", text)
-        return res.status(500).json({ error:"invalid response" })
+      if(!wallet){
+        return res.json({})
       }
+
+      const r = await fetch(
+        `${SUPABASE_URL}/rest/v1/profiles?wallet=eq.${wallet}&select=*`,
+        {
+          headers:{
+            apikey: KEY,
+            Authorization:`Bearer ${KEY}`
+          }
+        }
+      )
+
+      const data = await r.json()
+
+      return res.json(data[0] || {})
     }
 
     // ========================
-    // POST PROJECT
+    // SAVE PROFILE
     // ========================
     if(req.method === "POST"){
 
       const {
-        id,
-        name,
-        github,
-        social,
-        website,
-        description,
-        logo,
         wallet,
+        username,
+        bio,
         signature,
         message
       } = req.body
 
       // ========================
-      // BASIC VALIDATION
+      // VALIDATION
       // ========================
       if(!wallet || !signature || !message){
         return res.status(400).json({ error:"missing fields" })
-      }
-
-      if(!name || !github || !social){
-        return res.status(400).json({ error:"missing required fields" })
       }
 
       // ========================
@@ -72,7 +67,7 @@ export default async function handler(req, res){
         return res.status(401).json({ error:"invalid signature" })
       }
 
-      if(!message.startsWith(`submit:${wallet}`)){
+      if(!message.startsWith(`profile:${wallet}`)){
         return res.status(401).json({ error:"invalid message format" })
       }
 
@@ -84,87 +79,38 @@ export default async function handler(req, res){
       }
 
       // ========================
-      // 🔥 RATE LIMIT (1 PROJECT / 24h)
+      // UPSERT PROFILE
       // ========================
-      const existing = await fetch(
-        `${SUPABASE_URL}/rest/v1/projects?wallet=eq.${wallet}&select=created_at`,
-        {
-          headers:{
-            apikey: KEY,
-            Authorization:`Bearer ${KEY}`
-          }
-        }
-      )
-
-      const userProjects = await existing.json()
-
-      if(userProjects.length > 0){
-        const lastSubmit = Math.max(
-          ...userProjects.map(p => new Date(p.created_at).getTime())
-        )
-
-        if(Date.now() - lastSubmit < 86400000){
-          return res.status(403).json({ error:"1 project per 24h" })
-        }
-      }
-
-      // ========================
-      // 🔥 DUPLICATE CHECK
-      // ========================
-      const dupCheck = await fetch(
-        `${SUPABASE_URL}/rest/v1/projects?or=(github.eq.${encodeURIComponent(github)},social.eq.${encodeURIComponent(social)})&select=id`,
-        {
-          headers:{
-            apikey: KEY,
-            Authorization:`Bearer ${KEY}`
-          }
-        }
-      )
-
-      const duplicates = await dupCheck.json()
-
-      if(duplicates.length > 0){
-        return res.status(403).json({ error:"duplicate project" })
-      }
-
-      // ========================
-      // SAVE PROJECT
-      // ========================
-      const insert = await fetch(`${SUPABASE_URL}/rest/v1/projects`,{
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles`,{
         method:"POST",
         headers:{
           "Content-Type":"application/json",
           apikey: KEY,
-          Authorization:`Bearer ${KEY}`
+          Authorization:`Bearer ${KEY}`,
+          Prefer: "resolution=merge-duplicates"
         },
         body: JSON.stringify({
-          id,
-          name,
-          github,
-          social,
-          website,
-          description,
-          logo,
-          votes: 0,
           wallet,
-          created_at: new Date().toISOString()
+          username: username || "",
+          bio: bio || "",
+          updated: new Date().toISOString()
         })
       })
 
-      const text = await insert.text()
+      const text = await r.text()
 
       try{
         return res.json(JSON.parse(text))
       }catch{
-        console.error("insert error:", text)
-        return res.status(500).json({ error:"insert failed" })
+        console.error("profile save error:", text)
+        return res.status(500).json({ error:"save failed" })
       }
     }
 
     return res.status(405).json({ error:"method not allowed" })
 
   }catch(err){
-    console.log("projects api error:", err)
+    console.log("profile api error:", err)
     return res.status(500).json({ error:"server crash" })
   }
 }
