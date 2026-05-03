@@ -25,6 +25,7 @@ export default async function handler(req, res){
     // ========================
     // POST (CAST VOTE)
     // ========================
+    console.log("VOTE BODY:", req.body)
     if(req.method !== "POST"){
       return res.status(405).json({ error:"method not allowed" })
     }

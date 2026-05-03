@@ -534,51 +534,60 @@ if(!confirmed){
 // ========================
 async function vote(projectId, index){
 
-  if(!window.wallet) return alert("connect wallet")
+  try{
 
-  if(window.voteBank <= 0){
-    return alert("no voting power")
-  }
+    if(!window.wallet) return alert("connect wallet")
 
-  const amount = parseInt(document.getElementById(`vote-${index}`).value) || 1
+    const amount = parseInt(document.getElementById(`vote-${index}`).value) || 1
 
-  if(amount < 1){
-    return alert("invalid amount")
-  }
+    const message = `vote:${window.wallet}:${projectId}:${Date.now()}`
 
-  const timestamp = Date.now()
-  const message = `vote:${window.wallet}:${projectId}:${timestamp}`
+    // 🔥 SIGN MESSAGE
+    const encodedMessage = new TextEncoder().encode(message)
+    const signed = await window.solana.signMessage(encodedMessage, "utf8")
 
-  const signed = await window.solana.signMessage(
-    new TextEncoder().encode(message),
-    "utf8"
-  )
+    // 🔥 IMPORTANT: convert signature → ARRAY
+    const signature = Array.from(signed.signature)
 
-  const res = await fetch("/api/vote",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      wallet: window.wallet,
-      projectId,
-      amount,
-      signature: Array.from(signed.signature),
-      message
+    const res = await fetch("/api/vote",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body: JSON.stringify({
+        wallet: window.wallet,
+        projectId,
+        amount,
+        signature,
+        message
+      })
     })
-  })
 
-  const data = await res.json()
+    const text = await res.text()
 
-  if(!res.ok){
-    alert(data.error || "vote failed")
-    return
+    let data
+    try{
+      data = JSON.parse(text)
+    }catch{
+      console.error("vote parse error:", text)
+      alert("vote failed")
+      return
+    }
+
+    if(!res.ok){
+      alert(data.error || "vote failed")
+      return
+    }
+
+    console.log("vote success:", data)
+
+    // 🔥 reload projects so votes update
+    loadProjects()
+
+  }catch(err){
+    console.log("vote error:", err)
+    alert("vote failed")
   }
-
-  // 🔥 UPDATE LOCAL POWER
-  window.voteBank -= amount
-
-  // 🔥 RELOAD
-  await loadProjects()
-  await updateWalletUI()
 }
 
 // ========================
