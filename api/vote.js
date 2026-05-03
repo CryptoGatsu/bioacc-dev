@@ -25,7 +25,6 @@ export default async function handler(req, res){
     // ========================
     // POST (CAST VOTE)
     // ========================
-    console.log("VOTE BODY:", req.body)
     if(req.method !== "POST"){
       return res.status(405).json({ error:"method not allowed" })
     }
@@ -38,6 +37,8 @@ export default async function handler(req, res){
       message
     } = req.body
 
+    console.log("VOTE BODY:", req.body)
+
     // ========================
     // VALIDATION
     // ========================
@@ -45,7 +46,7 @@ export default async function handler(req, res){
       return res.status(400).json({ error:"missing fields" })
     }
 
-    const voteAmount = Math.min(parseInt(amount) || 1, 2)
+    const voteAmount = parseInt(amount) || 1
 
     if(voteAmount < 1){
       return res.status(400).json({ error:"invalid vote amount" })
@@ -76,6 +77,26 @@ export default async function handler(req, res){
     }
 
     // ========================
+    // FETCH USER PROFILE (VOTING POWER)
+    // ========================
+    const profileRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?wallet=eq.${wallet}&select=tokens`,
+      {
+        headers:{
+          apikey: KEY,
+          Authorization:`Bearer ${KEY}`
+        }
+      }
+    )
+
+    const profileData = await profileRes.json()
+    const userTokens = profileData?.[0]?.tokens || 0
+
+    if(voteAmount > userTokens){
+      return res.status(403).json({ error:"not enough voting power" })
+    }
+
+    // ========================
     // FETCH USER VOTES
     // ========================
     const voteCheck = await fetch(
@@ -91,99 +112,87 @@ export default async function handler(req, res){
     const existingVotes = await voteCheck.json()
 
     // ========================
-    // 🔥 24H GLOBAL COOLDOWN
+    // PROJECT-SPECIFIC RULES
     // ========================
-    if(existingVotes.length > 0){
-      const lastVote = Math.max(
-        ...existingVotes.map(v => new Date(v.created_at).getTime())
-      )
+    const projectVotes = existingVotes.filter(v => v.project_id === projectId)
 
-      if(Date.now() - lastVote < 86400000){
-        return res.status(403).json({ error:"already voted today" })
-      }
+    // 🔥 max 2 vote actions per project
+    if(projectVotes.length >= 2){
+      return res.status(403).json({ error:"max 2 votes per project" })
+    }
+
+    // 🔥 1 vote per project per 24h
+    const lastProjectVote = projectVotes
+      .map(v => new Date(v.created_at).getTime())
+      .sort((a,b)=>b-a)[0]
+
+    if(lastProjectVote && (Date.now() - lastProjectVote < 86400000)){
+      return res.status(403).json({ error:"already voted on this project today" })
     }
 
     // ========================
-    // 🔥 MAX 2 VOTES PER PROJECT
+    // SAVE VOTE
     // ========================
-    const userProjectVotes = existingVotes
-      .filter(v => v.project_id === projectId)
-      .reduce((sum,v)=>sum + v.amount, 0)
+    const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/votes`,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        apikey: KEY,
+        Authorization:`Bearer ${KEY}`,
+        Prefer:"return=representation"
+      },
+      body: JSON.stringify({
+        wallet,
+        project_id: projectId,
+        amount: voteAmount,
+        created_at: new Date().toISOString()
+      })
+    })
 
-    if(userProjectVotes >= 2){
-      return res.status(403).json({ error:"max votes reached for this project" })
+    const insertText = await insertRes.text()
+
+    if(!insertRes.ok){
+      console.error("INSERT FAILED STATUS:", insertRes.status)
+      console.error("INSERT FAILED BODY:", insertText)
+
+      return res.status(500).json({
+        error: "vote insert failed",
+        details: insertText
+      })
     }
 
-    if(userProjectVotes + voteAmount > 2){
-      return res.status(403).json({ error:"vote limit exceeded" })
+    // ========================
+    // INCREMENT PROJECT VOTES
+    // ========================
+    const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_votes`,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        apikey: KEY,
+        Authorization:`Bearer ${KEY}`
+      },
+      body: JSON.stringify({
+        project_id: projectId,
+        vote_amount: voteAmount
+      })
+    })
+
+    const rpcText = await rpcRes.text()
+
+    if(!rpcRes.ok){
+      console.error("RPC FAILED STATUS:", rpcRes.status)
+      console.error("RPC FAILED BODY:", rpcText)
+
+      return res.status(500).json({
+        error: "increment failed",
+        details: rpcText
+      })
     }
 
-// ========================
-// SAVE VOTE
-// ========================
-const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/votes`,{
-  method:"POST",
-  headers:{
-    "Content-Type":"application/json",
-    apikey: KEY,
-    Authorization:`Bearer ${KEY}`,
-    Prefer:"return=representation"
-  },
-  body: JSON.stringify({
-    wallet,
-    project_id: projectId,
-    amount: voteAmount,
-    created_at: new Date().toISOString()
-  })
-})
+    return res.json({ success:true })
 
-const insertText = await insertRes.text()
-
-if(!insertRes.ok){
-  console.error("INSERT FAILED STATUS:", insertRes.status)
-  console.error("INSERT FAILED BODY:", insertText)
-
-  // 🔥 STOP HERE (THIS IS WHAT YOU WERE MISSING)
-  return res.status(500).json({
-    error: "vote insert failed",
-    details: insertText
-  })
-}
-
-
-// ========================
-// INCREMENT PROJECT VOTES
-// ========================
-const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_votes`,{
-  method:"POST",
-  headers:{
-    "Content-Type":"application/json",
-    apikey: KEY,
-    Authorization:`Bearer ${KEY}`
-  },
-  body: JSON.stringify({
-    project_id: projectId,
-    vote_amount: voteAmount
-  })
-})
-
-const rpcText = await rpcRes.text()
-
-if(!rpcRes.ok){
-  console.error("RPC FAILED STATUS:", rpcRes.status)
-  console.error("RPC FAILED BODY:", rpcText)
-
-  // 🔥 STOP EXECUTION + RETURN REAL ERROR
-  return res.status(500).json({
-    error: "increment failed",
-    details: rpcText
-  })
-}
-
-  // ✅ success only if BOTH insert + rpc worked
-  return res.json({ success:true })
   } catch (err) {
-    console.error(err)
+    console.error("vote api error:", err)
     return res.status(500).json({ error:"server error" })
   }
 }
