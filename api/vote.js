@@ -1,7 +1,36 @@
 import nacl from "tweetnacl"
 import bs58 from "bs58"
+import { Connection, PublicKey } from "@solana/web3.js"
 
 const TOKENS_PER_VOTE = 1_000_000
+
+// 🔥 REPLACE THIS WITH YOUR TOKEN MINT
+const TOKEN_MINT = "YOUR_TOKEN_MINT_HERE"
+
+const connection = new Connection("https://api.mainnet-beta.solana.com")
+
+async function getTokenBalance(wallet){
+  try{
+    const owner = new PublicKey(wallet)
+    const mint = new PublicKey(TOKEN_MINT)
+
+    const accounts = await connection.getParsedTokenAccountsByOwner(owner,{
+      mint
+    })
+
+    if(accounts.value.length === 0){
+      return 0
+    }
+
+    const balance =
+      accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount || 0
+
+    return balance
+  }catch(err){
+    console.error("token fetch error:", err)
+    return 0
+  }
+}
 
 export default async function handler(req, res){
 
@@ -79,23 +108,14 @@ export default async function handler(req, res){
     }
 
     // ========================
-    // FETCH USER TOKENS
+    // 🔥 LIVE TOKEN BALANCE
     // ========================
-    const profileRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?wallet=eq.${wallet}&select=tokens`,
-      {
-        headers:{
-          apikey: KEY,
-          Authorization:`Bearer ${KEY}`
-        }
-      }
-    )
+    const userTokens = await getTokenBalance(wallet)
 
-    const profileData = await profileRes.json()
-    const userTokens = profileData?.[0]?.tokens || 0
-
-    // 🔥 CONVERT TOKENS → VOTES
     const totalVotingPower = Math.floor(userTokens / TOKENS_PER_VOTE)
+
+    console.log("TOKENS:", userTokens)
+    console.log("VOTING POWER:", totalVotingPower)
 
     if(totalVotingPower <= 0){
       return res.status(403).json({ error:"no voting power" })
@@ -117,7 +137,7 @@ export default async function handler(req, res){
     const existingVotes = await voteCheck.json()
 
     // ========================
-    // 🔥 DAILY VOTING LIMIT (GLOBAL)
+    // DAILY LIMIT
     // ========================
     const now = Date.now()
 
@@ -137,22 +157,20 @@ export default async function handler(req, res){
     }
 
     // ========================
-    // PROJECT-SPECIFIC RULES
+    // PROJECT RULES
     // ========================
     const projectVotes = existingVotes.filter(v => v.project_id === projectId)
 
-    // 🔥 max 2 vote actions per project (not total amount)
     if(projectVotes.length >= 2){
       return res.status(403).json({ error:"max 2 vote actions per project" })
     }
 
-    // 🔥 1 vote action per 24h per project
     const lastProjectVote = projectVotes
       .map(v => new Date(v.created_at).getTime())
       .sort((a,b)=>b-a)[0]
 
     if(lastProjectVote && (Date.now() - lastProjectVote < 86400000)){
-      return res.status(403).json({ error:"already voted on this project today" })
+      return res.status(403).json({ error:"already voted today" })
     }
 
     // ========================
@@ -185,7 +203,7 @@ export default async function handler(req, res){
     }
 
     // ========================
-    // INCREMENT PROJECT VOTES
+    // INCREMENT PROJECT
     // ========================
     const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_votes`,{
       method:"POST",
