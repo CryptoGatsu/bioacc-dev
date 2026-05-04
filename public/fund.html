@@ -532,6 +532,56 @@ if(!confirmed){
 }
 
 // ========================
+// 🔥 FETCH USER STATS
+// ========================
+async function fetchStats(){
+  try{
+    const res = await fetch("/api/profile-stats")
+    if(!res.ok) throw new Error("failed to fetch stats")
+
+    const stats = await res.json()
+
+    return stats || {
+      totalVotes: 0,
+      projectsVoted: [],
+      maxVotes: 25,
+      lastVoteTime: Date.now()
+    }
+
+  }catch(err){
+    console.log("fetchStats error", err)
+
+    return {
+      totalVotes: 0,
+      projectsVoted: [],
+      maxVotes: 25,
+      lastVoteTime: Date.now()
+    }
+  }
+}
+
+function checkVoteReset(stats){
+
+  const DAY = 24 * 60 * 60 * 1000
+  const now = Date.now()
+
+  if(!stats.lastVoteTime){
+    stats.lastVoteTime = now
+    return stats
+  }
+
+  if(now - stats.lastVoteTime >= DAY){
+    console.log("🔄 votes reset")
+
+    stats.totalVotes = 0
+    stats.projectsVoted = []
+    stats.lastVoteTime = now
+  }
+
+  return stats
+}
+
+// ========================
 // VOTE (SUPABASE + SIGNED)
 // ========================
 async function vote(projectId, index){
