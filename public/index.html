@@ -272,20 +272,41 @@ market cap: <span id="marketCap">loading...</span>
   padding:20px;
   margin-top:20px;
   position:relative;
-  height:180px;
+  height:220px;
   background:#050505;
+  overflow:hidden;
 ">
 
-  <canvas id="chartCanvas" width="800" height="140"></canvas>
+  <!-- CHART -->
+  <canvas id="chartCanvas" width="900" height="160" style="
+    width:100%;
+    height:160px;
+    display:block;
+  "></canvas>
 
+  <!-- MARKET CAP -->
   <div style="
     position:absolute;
     top:10px;
     right:15px;
     color:#7CFF3A;
     font-size:14px;
+    text-shadow:0 0 8px #7CFF3A;
   ">
     MC: <span id="liveMarketCap">$-</span>
+  </div>
+
+  <!-- LAST BUY -->
+  <div id="lastBuyContainer" style="
+    position:absolute;
+    bottom:10px;
+    left:15px;
+    color:#00ffcc;
+    font-size:12px;
+    text-shadow:0 0 6px #00ffcc;
+    opacity:0.9;
+  ">
+    Last Buy: <span id="lastBuy">-</span>
   </div>
 
 </div>
@@ -363,32 +384,172 @@ window.location = "/profile?wallet=" + wallet
 }
 
 let chartData = []
+let lastPrice = null
 
+// ========================
+// ⚡ FAST UPDATE LOOP (1s)
+// ========================
 async function updateChart(){
 
   try{
     const res = await fetch("https://api.dexscreener.com/latest/dex/pairs/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw")
     const data = await res.json()
 
-    const price = data.pair?.priceUsd || 0
-    const mc = data.pair?.fdv || 0
+    const price = Number(data.pair?.priceUsd || 0)
+    const mc = Number(data.pair?.fdv || 0)
 
-    document.getElementById("liveMarketCap").innerText =
-      "$" + Number(mc).toLocaleString()
+    // ========================
+    // UPDATE MC
+    // ========================
+    const mcEl = document.getElementById("liveMarketCap")
+    if(mcEl){
+      mcEl.innerText = "$" + mc.toLocaleString()
+    }
 
-    chartData.push(Number(price))
+// ========================
+// 🔴 REAL SWAP PARSER (ACCURATE)
+// ========================
 
-    if(chartData.length > 60) chartData.shift()
+const HELIUS_WS = new WebSocket(
+  "wss://rpc.helius.xyz/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
+)
 
-    drawChart()
+const HELIUS_RPC = "https://rpc.helius.xyz/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
+
+const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
+
+let solPrice = 150
+
+// ========================
+// 💰 SOL PRICE
+// ========================
+async function updateSolPrice(){
+  try{
+    const res = await fetch("https://api.dexscreener.com/latest/dex/pairs/solana/So11111111111111111111111111111111111111112")
+    const data = await res.json()
+    solPrice = Number(data.pair?.priceUsd || solPrice)
+  }catch{}
+}
+
+setInterval(updateSolPrice, 30000)
+updateSolPrice()
+
+// ========================
+// 🔌 CONNECT
+// ========================
+HELIUS_WS.onopen = () => {
+
+  console.log("helius connected (parser mode)")
+
+  HELIUS_WS.send(JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "logsSubscribe",
+    params: [
+      { mentions: [TOKEN_MINT] },
+      { commitment: "confirmed" }
+    ]
+  }))
+}
+
+// ========================
+// 📡 ON TX DETECTED
+// ========================
+HELIUS_WS.onmessage = async (msg) => {
+
+  try{
+    const data = JSON.parse(msg.data)
+
+    if(!data.params) return
+
+    const sig = data.params.result.value.signature
+
+    if(!sig) return
+
+    // ========================
+    // 🔎 FETCH FULL TX
+    // ========================
+    const txRes = await fetch(HELIUS_RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "getTransaction",
+        params: [
+          sig,
+          {
+            encoding: "jsonParsed",
+            maxSupportedTransactionVersion: 0
+          }
+        ]
+      })
+    })
+
+    const txData = await txRes.json()
+
+    const tx = txData.result
+    if(!tx || !tx.meta) return
+
+    const pre = tx.meta.preBalances
+    const post = tx.meta.postBalances
+
+    if(!pre || !post) return
+
+    // ========================
+    // 💰 FIND LARGEST SOL DROP
+    // ========================
+    let maxSpent = 0
+
+    for(let i = 0; i < pre.length; i++){
+      const diff = (pre[i] - post[i]) / 1e9
+      if(diff > maxSpent){
+        maxSpent = diff
+      }
+    }
+
+    // ignore dust
+    if(maxSpent < 0.01) return
+
+    // ========================
+    // 💵 CONVERT TO USD
+    // ========================
+    const usd = maxSpent * solPrice
+
+    // ========================
+    // 🟢 UPDATE UI
+    // ========================
+    const el = document.getElementById("lastBuy")
+
+    if(el){
+      el.innerText =
+        `$${Math.floor(usd).toLocaleString()} • ${new Date().toLocaleTimeString()}`
+    }
+
+  }catch(err){
+    console.log("tx parse error", err)
+  }
+}
+
+    // ========================
+    // STORE DATA
+    // ========================
+    chartData.push(price)
+    if(chartData.length > 120) chartData.shift()
 
   }catch(err){
     console.log("chart error", err)
   }
 }
 
+// ========================
+// 🎯 SMOOTH RENDER LOOP
+// ========================
 function drawChart(){
+
   const canvas = document.getElementById("chartCanvas")
+  if(!canvas) return
+
   const ctx = canvas.getContext("2d")
 
   ctx.clearRect(0,0,canvas.width,canvas.height)
@@ -397,56 +558,64 @@ function drawChart(){
 
   const max = Math.max(...chartData)
   const min = Math.min(...chartData)
-
   const range = max - min || 1
 
   ctx.beginPath()
 
   chartData.forEach((p,i)=>{
-    const x = (i / chartData.length) * canvas.width
+    const x = (i / (chartData.length - 1)) * canvas.width
     const y = canvas.height - ((p - min) / range) * canvas.height
 
     if(i === 0) ctx.moveTo(x,y)
     else ctx.lineTo(x,y)
   })
 
-  // glow
+  // ========================
+  // ✨ STRONG GLOW LINE
+  // ========================
   ctx.strokeStyle = "#7CFF3A"
-  ctx.lineWidth = 2
+  ctx.lineWidth = 2.5
+
   ctx.shadowColor = "#7CFF3A"
-  ctx.shadowBlur = 10
+  ctx.shadowBlur = 14
+
   ctx.stroke()
 
-  // glowing dot
+  ctx.shadowBlur = 0
+
+  // ========================
+  // 🟢 END DOT
+  // ========================
   const last = chartData[chartData.length - 1]
+
   const x = canvas.width
   const y = canvas.height - ((last - min) / range) * canvas.height
 
   ctx.beginPath()
-  ctx.arc(x-4, y, 4, 0, Math.PI*2)
+  ctx.arc(x - 6, y, 5, 0, Math.PI*2)
+
   ctx.fillStyle = "#7CFF3A"
+  ctx.shadowColor = "#7CFF3A"
   ctx.shadowBlur = 20
   ctx.fill()
+
+  ctx.shadowBlur = 0
 }
 
-setInterval(updateChart, 3000)
-
-// MARKET CAP
-async function refreshMarketCap(){
-
-const mc=document.getElementById("marketCap")
-const status=document.getElementById("marketStatus")
-
-try{
-const res=await fetch("https://api.dexscreener.com/latest/dex/pairs/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw")
-const data=await res.json()
-const cap=data.pair?.fdv || 0
-mc.innerText="$"+Number(cap).toLocaleString()
-status.innerText="market cap updated: "+new Date().toLocaleString()
-}catch{
-status.innerText="market data unavailable"
+// ========================
+// 🔁 ANIMATION LOOP (SMOOTH)
+// ========================
+function animate(){
+  drawChart()
+  requestAnimationFrame(animate)
 }
-}
+
+animate()
+
+// ========================
+// START FAST UPDATES
+// ========================
+setInterval(updateChart, 1000)
 
 
 
