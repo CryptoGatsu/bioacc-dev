@@ -479,30 +479,52 @@ setTimeout(()=>{line.style.color="#cfcfcf"},400)
 // LOAD FEED
 async function loadResearch(){
 
-const feed=document.getElementById("researchFeed")
-const status=document.getElementById("feedStatus")
+  const feed = document.getElementById("researchFeed")
+  const status = document.getElementById("feedStatus")
 
-try{
+  try{
 
-const res=await fetch("https://raw.githubusercontent.com/CryptoGatsu/bioacc-dev/main/news.json?cache="+Date.now(),{cache:"no-store"})
-const data=await res.json()
+    const res = await fetch("/news.json?cache=" + Date.now())
+    const data = await res.json()
 
-feed.innerHTML=""
+    feed.innerHTML = ""
 
-await typeLine(feed,"[sync] connecting to bio/acc intelligence network...")
-await delay(200)
+    for(const item of data.items){
 
-for(const item of data.items){
-await delay(50+Math.random()*120)
-await typeLine(feed,"> "+item)
-feed.scrollTop=feed.scrollHeight
-}
+      const row = document.createElement("div")
 
-status.innerText="intelligence updated: "+new Date(data.lastUpdated).toLocaleString()
+      row.style.padding = "12px"
+      row.style.borderBottom = "1px solid #111"
 
-}catch{
-feed.innerHTML="[error] intelligence network offline"
-}
+      row.innerHTML = `
+        <div style="
+          color:#7CFF3A;
+          text-shadow:0 0 8px #7CFF3A;
+          font-size:15px;
+        ">
+          ${item.title}
+        </div>
+
+        <div style="font-size:12px;color:#777;margin-top:4px;">
+          ${item.tag} • ${item.source}
+        </div>
+      `
+
+      row.onclick = () => {
+        window.open(item.url, "_blank")
+      }
+
+      row.style.cursor = "pointer"
+
+      feed.appendChild(row)
+    }
+
+    status.innerText =
+      "updated: " + new Date(data.lastUpdated).toLocaleString()
+
+  }catch(err){
+    feed.innerHTML = "[error loading feed]"
+  }
 }
 
 
