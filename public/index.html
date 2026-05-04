@@ -544,50 +544,84 @@ setInterval(updateSolPrice, 30000)
 updateSolPrice()
 
 // ========================
-// 🔴 SWAP PARSER (FIXED)
+// 🔴 REAL SWAP PARSER (ACCURATE)
 // ========================
 const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
-const HELIUS_RPC = "https://rpc.helius.xyz/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
 
-let seenSigs = new Set()
-let latestTime = 0
+const HELIUS_API =
+  "https://api.helius.xyz/v0/addresses/" +
+  TOKEN_MINT +
+  "/transactions?api-key=abe30281-08a6-4f68-921b-4da93db84835"
+
+let latestSig = null
 
 async function pollRecentSwaps(){
 
   try{
 
-    const res = await fetch(HELIUS_RPC,{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({
-        jsonrpc:"2.0",
-        id:1,
-        method:"getSignaturesForAddress",
-        params:[TOKEN_MINT,{limit:10}]
-      })
-    })
+    const res = await fetch(HELIUS_API)
+    const txs = await res.json()
 
-    const data = await res.json()
-    const sigs = data.result || []
+    if(!txs || txs.length === 0) return
 
-    for(const s of sigs){
+    for(const tx of txs){
 
-      if(seenSigs.has(s.signature)) continue
+      // stop once we reach already processed tx
+      if(tx.signature === latestSig) break
 
-      seenSigs.add(s.signature)
+      // only swaps
+      if(tx.type !== "SWAP") continue
 
-      await parseTransaction(s.signature)
+      const swap = tx.events?.swap
+      if(!swap) continue
 
-      // keep memory small
-      if(seenSigs.size > 50){
-        seenSigs = new Set([...seenSigs].slice(-25))
+      // ========================
+      // 🎯 DETECT BUY OF YOUR TOKEN
+      // ========================
+      const output = swap.tokenOutputs?.find(
+        t => t.mint === TOKEN_MINT
+      )
+
+      if(!output) continue // not buying your token
+
+      // ========================
+      // 💰 REAL USD VALUE
+      // ========================
+      let usd = swap.nativeInput?.amountUsd
+
+      // fallback if routed through token
+      if(!usd){
+        usd = swap.tokenInputs?.[0]?.amountUsd
       }
+
+      if(!usd || usd < 1) continue
+
+      // mark latest processed
+      latestSig = tx.signature
+
+      // ========================
+      // 🟢 UPDATE UI
+      // ========================
+      const el = document.getElementById("lastBuy")
+
+      if(el){
+        el.innerText =
+          `Last Buy: $${Math.floor(usd).toLocaleString()} • ${new Date(tx.timestamp * 1000).toLocaleTimeString()}`
+      }
+
+      // only update with newest valid buy
+      break
     }
 
   }catch(err){
-    console.log("poll error", err)
+    console.log("helius swap error", err)
   }
 }
+
+// ========================
+// 🔁 POLL LOOP
+// ========================
+setInterval(pollRecentSwaps, 1000)
 
 async function parseTransaction(signature){
 
