@@ -566,52 +566,39 @@ async function pollRecentSwaps(){
 
     for(const tx of txs){
 
-      // stop once we reach already processed tx
-      if(tx.signature === latestSig) break
+  if(tx.signature === latestSig) break
 
-      // only swaps
-      if(tx.type !== "SWAP") continue
+  const swap = tx.events?.swap
 
-      const swap = tx.events?.swap
-      if(!swap) continue
+  // ❗ DO NOT require tx.type === "SWAP"
+  if(!swap) continue
 
-      // ========================
-      // 🎯 DETECT BUY OF YOUR TOKEN
-      // ========================
-      const output = swap.tokenOutputs?.find(
-        t => t.mint === TOKEN_MINT
-      )
+  const output = swap.tokenOutputs?.find(
+    t => t.mint === TOKEN_MINT
+  )
 
-      if(!output) continue // not buying your token
+  if(!output) continue
 
-      // ========================
-      // 💰 REAL USD VALUE
-      // ========================
-      let usd = swap.nativeInput?.amountUsd
+  let usd =
+    swap.nativeInput?.amountUsd ||
+    swap.tokenInputs?.[0]?.amountUsd ||
+    0
 
-      // fallback if routed through token
-      if(!usd){
-        usd = swap.tokenInputs?.[0]?.amountUsd
-      }
+  if(usd < 1) continue
 
-      if(!usd || usd < 1) continue
+  latestSig = tx.signature
 
-      // mark latest processed
-      latestSig = tx.signature
+  const el = document.getElementById("lastBuy")
 
-      // ========================
-      // 🟢 UPDATE UI
-      // ========================
-      const el = document.getElementById("lastBuy")
+  if(el){
+    el.innerText =
+      `Last Buy: $${Math.floor(usd).toLocaleString()} • ${new Date(tx.timestamp * 1000).toLocaleTimeString()}`
+  }
 
-      if(el){
-        el.innerText =
-          `Last Buy: $${Math.floor(usd).toLocaleString()} • ${new Date(tx.timestamp * 1000).toLocaleTimeString()}`
-      }
+  break
+}
 
-      // only update with newest valid buy
-      break
-    }
+console.log("TXS:", txs)
 
   }catch(err){
     console.log("helius swap error", err)
