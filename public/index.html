@@ -372,34 +372,29 @@ bio/acc is a movement accelerating biotechnology.
 
 <script>
 
-
-// 🔥 FIX: ASYNC PROFILE LINK
+// ========================
+// 🔗 PROFILE LINK
+// ========================
 async function profileLink(wallet){
-
   let name = wallet.slice(0,4)+"..."+wallet.slice(-4)
-
   try{
     const profile = await window.getProfile(wallet)
-    if(profile?.username){
-      name = profile.username
-    }
+    if(profile?.username) name = profile.username
   }catch{}
-
   return `<span class="profile-link" onclick="goProfile('${wallet}')">${name}</span>`
 }
 
 function goProfile(wallet){
-window.location = "/profile?wallet=" + wallet
+  window.location = "/profile?wallet=" + wallet
 }
 
+// ========================
+// 📈 CHART ENGINE
+// ========================
 let chartData = []
-let lastPrice = null
+let solPrice = 150
 
-// ========================
-// ⚡ FAST UPDATE LOOP (1s)
-// ========================
 async function updateChart(){
-
   try{
     const res = await fetch("https://api.dexscreener.com/latest/dex/pairs/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw")
     const data = await res.json()
@@ -407,43 +402,85 @@ async function updateChart(){
     const price = Number(data.pair?.priceUsd || 0)
     const mc = Number(data.pair?.fdv || 0)
 
-    // ========================
-    // UPDATE MC
-    // ========================
+    // update MC
     const mcEl = document.getElementById("liveMarketCap")
     if(mcEl){
       mcEl.innerText = "$" + mc.toLocaleString()
     }
 
+    chartData.push(price)
+    if(chartData.length > 120) chartData.shift()
+
+  }catch(err){
+    console.log("chart error", err)
+  }
+}
+
 // ========================
-// 🔴 REAL SWAP PARSER (ACCURATE)
+// 🎯 DRAW CHART
 // ========================
+function drawChart(){
 
-const HELIUS_WS = new WebSocket(
-  "wss://mainnet.helius-rpc.com/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
-)
+  const canvas = document.getElementById("chartCanvas")
+  if(!canvas) return
 
-const HELIUS_RPC = "https://rpc.helius.xyz/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
+  const ctx = canvas.getContext("2d")
+  ctx.clearRect(0,0,canvas.width,canvas.height)
 
-const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
+  if(chartData.length < 2) return
 
-let solPrice = 150
+  const PADDING_TOP = 25
+  const PADDING_BOTTOM = 25
+  const usableHeight = canvas.height - PADDING_TOP - PADDING_BOTTOM
 
-let wsConnected = false
+  const max = Math.max(...chartData)
+  const min = Math.min(...chartData)
+  const range = max - min || 1
+  const mid = (max + min) / 2
 
-HELIUS_WS.onopen = () => {
-  wsConnected = true
-  console.log("helius connected")
+  ctx.beginPath()
+
+  chartData.forEach((p,i)=>{
+    const x = (i / (chartData.length - 1)) * canvas.width
+    const normalized = (p - mid) / range
+
+    const y = canvas.height/2 - normalized * usableHeight
+
+    if(i === 0) ctx.moveTo(x,y)
+    else ctx.lineTo(x,y)
+  })
+
+  ctx.strokeStyle = "#7CFF3A"
+  ctx.lineWidth = 2.5
+  ctx.shadowColor = "#7CFF3A"
+  ctx.shadowBlur = 16
+  ctx.stroke()
+  ctx.shadowBlur = 0
+
+  const last = chartData[chartData.length - 1]
+  const normalized = (last - mid) / range
+  const y = canvas.height/2 - normalized * usableHeight
+  const x = canvas.width - 6
+
+  ctx.beginPath()
+  ctx.arc(x, y, 5, 0, Math.PI*2)
+  ctx.fillStyle = "#7CFF3A"
+  ctx.shadowColor = "#7CFF3A"
+  ctx.shadowBlur = 22
+  ctx.fill()
+  ctx.shadowBlur = 0
 }
 
-HELIUS_WS.onerror = () => {
-  console.log("helius ws error")
+// ========================
+// 🔁 ANIMATION LOOP
+// ========================
+function animate(){
+  drawChart()
+  requestAnimationFrame(animate)
 }
+animate()
 
-HELIUS_WS.onclose = () => {
-  wsConnected = false
-  console.log("helius disconnected")
-}
+setInterval(updateChart, 1000)
 
 // ========================
 // 💰 SOL PRICE
@@ -455,512 +492,176 @@ async function updateSolPrice(){
     solPrice = Number(data.pair?.priceUsd || solPrice)
   }catch{}
 }
-
 setInterval(updateSolPrice, 30000)
 updateSolPrice()
 
 // ========================
-// 🔌 CONNECT
+// 🔴 SWAP PARSER (FIXED)
 // ========================
-HELIUS_WS.onopen = () => {
+const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
+const HELIUS_RPC = "https://rpc.helius.xyz/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
 
-  console.log("helius connected (parser mode)")
+let polling = false
 
-  HELIUS_WS.send(JSON.stringify({
-    jsonrpc: "2.0",
-    id: 1,
-    method: "logsSubscribe",
-    params: [
-      { mentions: [TOKEN_MINT] },
-      { commitment: "confirmed" }
-    ]
-  }))
-}
+async function pollRecentSwaps(){
 
-// ========================
-// 📡 ON TX DETECTED
-// ========================
-HELIUS_WS.onmessage = async (msg) => {
+  if(polling) return
+  polling = true
 
   try{
-    const data = JSON.parse(msg.data)
 
-    if(!data.params) return
-
-    const sig = data.params.result.value.signature
-
-    if(!sig) return
-
-    // ========================
-    // 🔎 FETCH FULL TX
-    // ========================
-    const txRes = await fetch(HELIUS_RPC, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const res = await fetch(HELIUS_RPC,{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "getTransaction",
-        params: [
-          sig,
-          {
-            encoding: "jsonParsed",
-            maxSupportedTransactionVersion: 0
-          }
-        ]
+        jsonrpc:"2.0",
+        id:1,
+        method:"getSignaturesForAddress",
+        params:[TOKEN_MINT,{limit:5}]
+      })
+    })
+
+    const data = await res.json()
+    const sigs = data.result || []
+
+    for(const s of sigs){
+      await parseTransaction(s.signature)
+    }
+
+  }catch(err){
+    console.log("poll error", err)
+  }
+
+  polling = false
+}
+
+async function parseTransaction(signature){
+
+  try{
+
+    const txRes = await fetch(HELIUS_RPC,{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        jsonrpc:"2.0",
+        id:1,
+        method:"getTransaction",
+        params:[signature,{encoding:"jsonParsed"}]
       })
     })
 
     const txData = await txRes.json()
-
     const tx = txData.result
+
     if(!tx || !tx.meta) return
 
     const pre = tx.meta.preBalances
     const post = tx.meta.postBalances
 
-    if(!pre || !post) return
-
-    // ========================
-    // 💰 FIND LARGEST SOL DROP
-    // ========================
     let maxSpent = 0
 
-    for(let i = 0; i < pre.length; i++){
-      const diff = (pre[i] - post[i]) / 1e9
-      if(diff > maxSpent){
-        maxSpent = diff
-      }
+    for(let i=0;i<pre.length;i++){
+      const diff = (pre[i]-post[i])/1e9
+      if(diff > maxSpent) maxSpent = diff
     }
 
-    // ignore dust
-    if(maxSpent < 0.01) return
+    if(maxSpent < 0.02) return
 
-    // ========================
-    // 💵 CONVERT TO USD
-    // ========================
     const usd = maxSpent * solPrice
 
-    // ========================
-    // 🟢 UPDATE UI
-    // ========================
     const el = document.getElementById("lastBuy")
-
     if(el){
       el.innerText =
         `$${Math.floor(usd).toLocaleString()} • ${new Date().toLocaleTimeString()}`
     }
 
   }catch(err){
-    console.log("tx parse error", err)
+    console.log("parse error", err)
   }
 }
 
-    // ========================
-    // STORE DATA
-    // ========================
-    chartData.push(price)
-    if(chartData.length > 120) chartData.shift()
-
-  }catch(err){
-    console.log("chart error", err)
-  }
-}
+// 🔁 SAFE POLLING (NO WEBSOCKET SPAM)
+setInterval(pollRecentSwaps, 4000)
 
 // ========================
-// 🎯 SMOOTH RENDER LOOP
+// 📊 STATS
 // ========================
-function drawChart(){
-
-  const canvas = document.getElementById("chartCanvas")
-  if(!canvas) return
-
-  const ctx = canvas.getContext("2d")
-
-  ctx.clearRect(0,0,canvas.width,canvas.height)
-
-  if(chartData.length < 2) return
-
-  // ========================
-  // 📏 SAFE DRAW AREA (prevents UI overlap)
-  // ========================
-  const PADDING_TOP = 25
-  const PADDING_BOTTOM = 25
-  const usableHeight = canvas.height - PADDING_TOP - PADDING_BOTTOM
-
-  // ========================
-  // 📊 DATA RANGE
-  // ========================
-  const max = Math.max(...chartData)
-  const min = Math.min(...chartData)
-  const range = max - min || 1
-
-  // 🎯 CENTER baseline (key fix)
-  const mid = (max + min) / 2
-
-  ctx.beginPath()
-
-  chartData.forEach((p,i)=>{
-
-    const x = (i / (chartData.length - 1)) * canvas.width
-
-    // normalize around midpoint instead of bottom
-    const normalized = (p - mid) / range
-
-    const y =
-      canvas.height / 2 -
-      normalized * usableHeight
-
-    if(i === 0) ctx.moveTo(x,y)
-    else ctx.lineTo(x,y)
-  })
-
-  // ========================
-  // ✨ STRONG GLOW LINE
-  // ========================
-  ctx.strokeStyle = "#7CFF3A"
-  ctx.lineWidth = 2.5
-
-  ctx.shadowColor = "#7CFF3A"
-  ctx.shadowBlur = 16
-
-  ctx.stroke()
-
-  ctx.shadowBlur = 0
-
-  // ========================
-  // 🟢 END DOT (correct position)
-  // ========================
-  const last = chartData[chartData.length - 1]
-
-  const normalized = (last - mid) / range
-
-  const y =
-    canvas.height / 2 -
-    normalized * usableHeight
-
-  const x = canvas.width - 6
-
-  ctx.beginPath()
-  ctx.arc(x, y, 5, 0, Math.PI*2)
-
-  ctx.fillStyle = "#7CFF3A"
-  ctx.shadowColor = "#7CFF3A"
-  ctx.shadowBlur = 22
-  ctx.fill()
-
-  ctx.shadowBlur = 0
-}
-
-// ========================
-// 🔁 ANIMATION LOOP (SMOOTH)
-// ========================
-function animate(){
-  drawChart()
-  requestAnimationFrame(animate)
-}
-
-animate()
-
-// ========================
-// START FAST UPDATES
-// ========================
-setInterval(updateChart, 1000)
-
-
-
-
-// 🔥 STATS (UNCHANGED — GitHub source)
 async function loadStats(){
-
   try{
-
-    // 🔥 GET PROJECTS
     const projRes = await fetch("/api/projects")
     const projects = await projRes.json()
 
-    // 🔥 GET VOTES
     const voteRes = await fetch("/api/vote")
     const votes = await voteRes.json()
 
-    // 🔥 GET SIGNERS (manifesto table)
     const manRes = await fetch("/api/manifesto")
     const signers = await manRes.json()
 
-    // 🔥 CALCULATE TOTAL VOTES
     let totalVotes = 0
-    votes.forEach(v=>{
-      totalVotes += v.amount || 0
-    })
+    votes.forEach(v=> totalVotes += v.amount || 0)
 
-    // 🔥 UPDATE UI
     document.getElementById("statProjects").innerText = projects.length || 0
     document.getElementById("statVotes").innerText = totalVotes
     document.getElementById("statSigners").innerText = signers.length || 0
 
   }catch(err){
     console.log("stats error", err)
-
-    document.getElementById("statProjects").innerText = "-"
-    document.getElementById("statVotes").innerText = "-"
-    document.getElementById("statSigners").innerText = "-"
   }
 }
 
-
-// DELAY
-function delay(ms){return new Promise(r=>setTimeout(r,ms))}
-
-
-// TYPE LINE
-async function typeLine(container,text){
-const line=document.createElement("div")
-line.className="new-line"
-container.appendChild(line)
-let i=0
-while(i<text.length){
-line.innerHTML=text.slice(0,i)+'<span class="cursor"></span>'
-i++
-await delay(8)
-}
-line.innerHTML=text
-line.style.color="#7CFF3A"
-setTimeout(()=>{line.style.color="#cfcfcf"},400)
-}
-
-
 // ========================
-// LOAD FEED (FINAL)
+// 🧬 FEED (UNCHANGED CORE)
 // ========================
-let autoRefreshTimer = null
-let refreshCooldown = false
-
 async function loadResearch(){
-
   const feed = document.getElementById("researchFeed")
-  const status = document.getElementById("feedStatus")
-  const btn = document.getElementById("refreshBtn")
-
   if(!feed) return
 
   try{
-
-    // ========================
-    // LOADING STATE
-    // ========================
     feed.innerHTML = "[ loading biotech signals... ]"
 
-    if(status){
-      status.innerText = "fetching live data..."
-    }
-
-    if(btn && !refreshCooldown){
-      btn.disabled = true
-      btn.innerText = "loading..."
-    }
-
-    // ========================
-    // FETCH
-    // ========================
     const res = await fetch("/api/news?cache=" + Date.now())
-
-    if(!res.ok){
-      throw new Error("API failed")
-    }
-
     const data = await res.json()
 
-    // ========================
-    // RENDER
-    // ========================
     feed.innerHTML = ""
-
-    if(!data.items || data.items.length === 0){
-      feed.innerHTML = "[ no signals found ]"
-      return
-    }
 
     for(const item of data.items){
 
       let color = "#888"
-
       if(item.score >= 8) color = "#00ffcc"
       else if(item.score >= 5) color = "#7CFF3A"
-      else color = "#666"
-
-      // ========================
-      // COMPANY DISPLAY
-      // ========================
-      let companyText = ""
-      if(item.companies && item.companies.length > 0){
-        companyText = item.companies
-          .map(c => `${c.name.toUpperCase()} (${c.ticker})`)
-          .join(", ")
-      }
 
       const row = document.createElement("div")
-
       row.style.padding = "12px"
       row.style.borderBottom = "1px solid #111"
       row.style.cursor = "pointer"
-      row.style.transition = "0.2s"
-
-      row.onmouseover = () => row.style.background = "#050505"
-      row.onmouseout = () => row.style.background = "transparent"
 
       row.innerHTML = `
-        <div style="
-          color:${color};
-          text-shadow:0 0 8px ${color};
-          font-size:15px;
-          line-height:1.4;
-        ">
+        <div style="color:${color};text-shadow:0 0 8px ${color};">
           ${item.trending ? "🔥 " : ""}${item.title}
         </div>
-
-        <div style="
-          font-size:12px;
-          color:#777;
-          margin-top:4px;
-        ">
+        <div style="font-size:12px;color:#777;margin-top:4px;">
           ${item.source} • score: ${item.score}
-          ${companyText ? " • " + companyText : ""}
         </div>
       `
 
-      row.onclick = () => {
-        if(item.url){
-          window.open(item.url, "_blank")
-        }
-      }
-
+      row.onclick = () => window.open(item.url, "_blank")
       feed.appendChild(row)
     }
 
-    // ========================
-    // STATUS UPDATE
-    // ========================
-    if(status){
-      status.innerText =
-        "updated: " + new Date(data.lastUpdated).toLocaleTimeString()
-    }
-
-    // ========================
-    // AUTO REFRESH (60s)
-    // ========================
-    if(!autoRefreshTimer){
-      autoRefreshTimer = setInterval(() => {
-        loadResearch()
-      }, 60000)
-    }
-
-    // ========================
-    // BUTTON COOLDOWN (5s)
-    // ========================
-    if(btn && !refreshCooldown){
-
-      refreshCooldown = true
-
-      let cooldown = 5
-      btn.innerText = `refresh (${cooldown}s)`
-
-      const interval = setInterval(() => {
-        cooldown--
-
-        if(cooldown > 0){
-          btn.innerText = `refresh (${cooldown}s)`
-        }else{
-          clearInterval(interval)
-          btn.innerText = "refresh feed"
-          btn.disabled = false
-          refreshCooldown = false
-        }
-
-      }, 1000)
-    }
-
   }catch(err){
-
-    console.log("feed error:", err)
-
     feed.innerHTML = "[ error loading feed ]"
-
-    if(status){
-      status.innerText = "failed to load"
-    }
-
-    if(btn){
-      btn.disabled = false
-      btn.innerText = "retry"
-      refreshCooldown = false
-    }
   }
 }
 
-let lastRefresh = 0
-let cooldown = 10000 // 10 sec
-let refreshing = false
-
-const btn = document.getElementById("refreshFeed")
-
-btn.onclick = async () => {
-
-  const now = Date.now()
-
-  // cooldown check
-  if(now - lastRefresh < cooldown){
-    return
-  }
-
-  refreshing = true
-  lastRefresh = now
-
-  // UI: loading state
-  btn.innerText = "loading..."
-  btn.disabled = true
-  btn.style.opacity = "0.6"
-
-  await loadResearch()
-
-  refreshing = false
-
-  // start cooldown timer
-  startCooldown()
-}
-
-function startCooldown(){
-
-  const btn = document.getElementById("refreshFeed")
-
-  const interval = setInterval(() => {
-
-    const remaining = cooldown - (Date.now() - lastRefresh)
-
-    if(remaining <= 0){
-      clearInterval(interval)
-
-      btn.innerText = "refresh feed"
-      btn.disabled = false
-      btn.style.opacity = "1"
-      return
-    }
-
-    btn.innerText = "refresh (" + Math.ceil(remaining / 1000) + "s)"
-
-  }, 500)
-}
-
-
-// INIT
+// ========================
+// 🚀 INIT
+// ========================
 window.addEventListener("DOMContentLoaded", async () => {
-
-  await autoConnect() // wallet init FIRST
-
+  await autoConnect()
   loadResearch()
-  refreshMarketCap()
   loadStats()
-
 })
+
 </script>
 
 </body>
