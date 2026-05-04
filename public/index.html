@@ -510,7 +510,12 @@ setTimeout(()=>{line.style.color="#cfcfcf"},400)
 }
 
 
-// LOAD FEED
+// ========================
+// LOAD FEED (FINAL)
+// ========================
+let autoRefreshTimer = null
+let refreshCooldown = false
+
 async function loadResearch(){
 
   const feed = document.getElementById("researchFeed")
@@ -525,10 +530,12 @@ async function loadResearch(){
     // LOADING STATE
     // ========================
     feed.innerHTML = "[ loading biotech signals... ]"
-    if(status) status.innerText = "fetching live data..."
 
-    // disable button during fetch
-    if(btn){
+    if(status){
+      status.innerText = "fetching live data..."
+    }
+
+    if(btn && !refreshCooldown){
       btn.disabled = true
       btn.innerText = "loading..."
     }
@@ -558,9 +565,19 @@ async function loadResearch(){
 
       let color = "#888"
 
-      if(item.score >= 8) color = "#00ffcc"     // HIGH SIGNAL
-      else if(item.score >= 5) color = "#7CFF3A" // MEDIUM
-      else color = "#666"                       // LOW
+      if(item.score >= 8) color = "#00ffcc"
+      else if(item.score >= 5) color = "#7CFF3A"
+      else color = "#666"
+
+      // ========================
+      // COMPANY DISPLAY
+      // ========================
+      let companyText = ""
+      if(item.companies && item.companies.length > 0){
+        companyText = item.companies
+          .map(c => `${c.name.toUpperCase()} (${c.ticker})`)
+          .join(", ")
+      }
 
       const row = document.createElement("div")
 
@@ -588,6 +605,7 @@ async function loadResearch(){
           margin-top:4px;
         ">
           ${item.source} • score: ${item.score}
+          ${companyText ? " • " + companyText : ""}
         </div>
       `
 
@@ -605,27 +623,40 @@ async function loadResearch(){
     // ========================
     if(status){
       status.innerText =
-        "updated: " + new Date(data.lastUpdated).toLocaleString()
+        "updated: " + new Date(data.lastUpdated).toLocaleTimeString()
     }
 
     // ========================
-    // REFRESH COOLDOWN (5s)
+    // AUTO REFRESH (60s)
     // ========================
-    if(btn){
-      let cooldown = 5
+    if(!autoRefreshTimer){
+      autoRefreshTimer = setInterval(() => {
+        loadResearch()
+      }, 60000)
+    }
 
+    // ========================
+    // BUTTON COOLDOWN (5s)
+    // ========================
+    if(btn && !refreshCooldown){
+
+      refreshCooldown = true
+
+      let cooldown = 5
       btn.innerText = `refresh (${cooldown}s)`
 
       const interval = setInterval(() => {
         cooldown--
-        btn.innerText = cooldown > 0
-          ? `refresh (${cooldown}s)`
-          : "refresh feed"
 
-        if(cooldown <= 0){
+        if(cooldown > 0){
+          btn.innerText = `refresh (${cooldown}s)`
+        }else{
           clearInterval(interval)
+          btn.innerText = "refresh feed"
           btn.disabled = false
+          refreshCooldown = false
         }
+
       }, 1000)
     }
 
@@ -642,6 +673,7 @@ async function loadResearch(){
     if(btn){
       btn.disabled = false
       btn.innerText = "retry"
+      refreshCooldown = false
     }
   }
 }

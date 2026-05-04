@@ -132,7 +132,45 @@ export default async function handler(req, res){
       return true
     })
 
+// ========================
+// 🧬 BIOTECH COMPANY MAP
+// ========================
+const biotechCompanies = [
+  { name: "moderna", ticker: "MRNA" },
+  { name: "crispr", ticker: "CRSP" },
+  { name: "vertex", ticker: "VRTX" },
+  { name: "regeneron", ticker: "REGN" },
+  { name: "illumina", ticker: "ILMN" },
+  { name: "gilead", ticker: "GILD" },
+  { name: "amgen", ticker: "AMGN" },
+  { name: "biogen", ticker: "BIIB" },
+  { name: "intellia", ticker: "NTLA" },
+  { name: "beam", ticker: "BEAM" }
+]
 
+// ========================
+// 🔗 MATCH COMPANIES
+// ========================
+items = items.map(item => {
+
+  const title = item.title.toLowerCase()
+
+  let matched = []
+
+  for(const c of biotechCompanies){
+    if(title.includes(c.name)){
+      matched.push(c)
+    }
+  }
+
+  let companyBoost = matched.length * 3
+
+  return {
+    ...item,
+    companies: matched,
+    score: item.score + companyBoost
+  }
+})
     // ========================
     // SORT
     // ========================
