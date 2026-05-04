@@ -536,6 +536,10 @@ if(!confirmed){
 // ========================
 async function vote(projectId, index){
 
+  let stats = await fetchStats()
+
+stats = checkVoteReset(stats)
+
   try{
 
     if(!window.wallet) return alert("connect wallet")
