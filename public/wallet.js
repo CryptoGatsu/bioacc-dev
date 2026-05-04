@@ -143,6 +143,8 @@ window.connectWallet = async function(){
   }
 }
 
+
+
 // ========================
 // AUTO CONNECT
 // ========================
@@ -169,6 +171,15 @@ window.autoConnect = async function(){
 
   await window.updateWalletUI(true)
 }
+
+window.addEventListener("walletConnected", (e) => {
+  CURRENT_WALLET = e.detail
+
+  console.log("Wallet set:", CURRENT_WALLET)
+
+  // 🔥 RUN IMMEDIATELY
+  loadStats(CURRENT_WALLET)
+})
 
 // ========================
 // LOAD TOKEN DATA (HELIUS)
