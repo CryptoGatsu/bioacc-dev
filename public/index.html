@@ -515,49 +515,134 @@ async function loadResearch(){
 
   const feed = document.getElementById("researchFeed")
   const status = document.getElementById("feedStatus")
+  const btn = document.getElementById("refreshBtn")
+
+  if(!feed) return
 
   try{
 
-    feed.innerHTML = "[loading feed...]"
+    // ========================
+    // LOADING STATE
+    // ========================
+    feed.innerHTML = "[ loading biotech signals... ]"
+    if(status) status.innerText = "fetching live data..."
 
+    // disable button during fetch
+    if(btn){
+      btn.disabled = true
+      btn.innerText = "loading..."
+    }
+
+    // ========================
+    // FETCH
+    // ========================
     const res = await fetch("/api/news?cache=" + Date.now())
+
+    if(!res.ok){
+      throw new Error("API failed")
+    }
+
     const data = await res.json()
 
+    // ========================
+    // RENDER
+    // ========================
     feed.innerHTML = ""
+
+    if(!data.items || data.items.length === 0){
+      feed.innerHTML = "[ no signals found ]"
+      return
+    }
 
     for(const item of data.items){
 
-      let color = "#555"
+      let color = "#888"
 
-      if(item.score >= 8) color = "#00ffcc"   // HIGH (alpha)
+      if(item.score >= 8) color = "#00ffcc"     // HIGH SIGNAL
       else if(item.score >= 5) color = "#7CFF3A" // MEDIUM
-      else color = "#888" // LOW
+      else color = "#666"                       // LOW
 
       const row = document.createElement("div")
 
       row.style.padding = "12px"
       row.style.borderBottom = "1px solid #111"
+      row.style.cursor = "pointer"
+      row.style.transition = "0.2s"
+
+      row.onmouseover = () => row.style.background = "#050505"
+      row.onmouseout = () => row.style.background = "transparent"
 
       row.innerHTML = `
-        <div style="color:${color};text-shadow:0 0 8px ${color};">
+        <div style="
+          color:${color};
+          text-shadow:0 0 8px ${color};
+          font-size:15px;
+          line-height:1.4;
+        ">
           ${item.trending ? "🔥 " : ""}${item.title}
         </div>
 
-        <div style="font-size:12px;color:#777;margin-top:4px;">
+        <div style="
+          font-size:12px;
+          color:#777;
+          margin-top:4px;
+        ">
           ${item.source} • score: ${item.score}
         </div>
       `
 
-      row.onclick = () => window.open(item.url, "_blank")
+      row.onclick = () => {
+        if(item.url){
+          window.open(item.url, "_blank")
+        }
+      }
 
       feed.appendChild(row)
     }
 
-    status.innerText =
-      "updated: " + new Date(data.lastUpdated).toLocaleString()
+    // ========================
+    // STATUS UPDATE
+    // ========================
+    if(status){
+      status.innerText =
+        "updated: " + new Date(data.lastUpdated).toLocaleString()
+    }
+
+    // ========================
+    // REFRESH COOLDOWN (5s)
+    // ========================
+    if(btn){
+      let cooldown = 5
+
+      btn.innerText = `refresh (${cooldown}s)`
+
+      const interval = setInterval(() => {
+        cooldown--
+        btn.innerText = cooldown > 0
+          ? `refresh (${cooldown}s)`
+          : "refresh feed"
+
+        if(cooldown <= 0){
+          clearInterval(interval)
+          btn.disabled = false
+        }
+      }, 1000)
+    }
 
   }catch(err){
-    feed.innerHTML = "[error loading feed]"
+
+    console.log("feed error:", err)
+
+    feed.innerHTML = "[ error loading feed ]"
+
+    if(status){
+      status.innerText = "failed to load"
+    }
+
+    if(btn){
+      btn.disabled = false
+      btn.innerText = "retry"
+    }
   }
 }
 
