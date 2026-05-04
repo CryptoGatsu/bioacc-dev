@@ -602,44 +602,43 @@ async function loadStats(wallet){
 
   try{
 
-    // ========================
-// GLOBAL STATS (FINAL)
+// ========================
+// GLOBAL STATS (FINAL FIX)
 // ========================
 const projRes = await fetch("/api/projects")
 
 let projects = []
+
 if(projRes.ok){
   const data = await projRes.json()
+
   if(Array.isArray(data)){
     projects = data
+  } else if(Array.isArray(data.data)){
+    projects = data.data
   }
 }
 
-let signers = []
-
-try{
-  const manRes = await fetch("/api/manifesto")
-
-  if(manRes.ok){
-    const data = await manRes.json()
-    if(Array.isArray(data)){
-      signers = data
-    }
-  }
-
-}catch(err){
-  console.log("manifesto fetch failed", err)
-}
-
-document.getElementById("statSigners").innerText = signers.length
-
-// ✅ TRUE GLOBAL TOTAL
 let totalVotes = 0
 projects.forEach(p => totalVotes += Number(p.votes || 0))
 
+console.log("PROJECTS:", projects)
+console.log("GLOBAL TOTAL:", totalVotes)
+
 document.getElementById("statProjects").innerText = projects.length
 document.getElementById("statVotes").innerText = totalVotes
-document.getElementById("statSigners").innerText = signers.length
+
+// MANIFESTO SAFE
+let signers = []
+try{
+  const res = await fetch("/api/manifesto")
+  if(res.ok){
+    const data = await res.json()
+    if(Array.isArray(data)) signers = data
+  }
+}catch{}
+
+document.getElementById("statSigners").innerText = signers.length || 0
 
 
     // ========================
