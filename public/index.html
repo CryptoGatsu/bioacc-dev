@@ -314,7 +314,7 @@ text-decoration:underline;
       color:#00ffcc;
       text-shadow:0 0 6px #00ffcc;
     ">
-      Last Buy: <span id="lastBuy">-</span>
+      <span id="lastBuy">Last Buy: -</span>
     </div>
 
     <!-- MARKET CAP -->
@@ -609,29 +609,57 @@ async function parseTransaction(signature){
 
     if(!tx || !tx.meta || !tx.blockTime) return
 
-    // 🧠 only newest transaction
+    // only newest
     if(tx.blockTime <= latestTime) return
     latestTime = tx.blockTime
 
-    const pre = tx.meta.preBalances
-    const post = tx.meta.postBalances
+    const balances = tx.meta.postTokenBalances || []
+    const preBalances = tx.meta.preTokenBalances || []
 
-    let maxSpent = 0
+    let tokenBought = 0
 
-    for(let i=0;i<pre.length;i++){
-      const diff = (pre[i]-post[i])/1e9
-      if(diff > maxSpent) maxSpent = diff
+    for(let i=0;i<balances.length;i++){
+
+      const post = balances[i]
+      const pre = preBalances.find(p => p.accountIndex === post.accountIndex)
+
+      if(!post || !post.mint) continue
+
+      // 🎯 match YOUR TOKEN
+      if(post.mint !== TOKEN_MINT) continue
+
+      const postAmount = Number(post.uiTokenAmount.amount || 0)
+      const preAmount = Number(pre?.uiTokenAmount.amount || 0)
+
+      const diff = (postAmount - preAmount) / (10 ** post.uiTokenAmount.decimals)
+
+      if(diff > tokenBought){
+        tokenBought = diff
+      }
     }
 
-    if(maxSpent < 0.02) return
+    if(tokenBought <= 0) return
 
-    const usd = maxSpent * solPrice
+    // ========================
+    // 💰 ESTIMATE USD VALUE
+    // ========================
+    const pairRes = await fetch("https://api.dexscreener.com/latest/dex/pairs/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw")
+    const pairData = await pairRes.json()
 
+    const price = Number(pairData.pair?.priceUsd || 0)
+    const usd = tokenBought * price
+
+    // ignore dust
+    if(usd < 1) return
+
+    // ========================
+    // 🟢 UPDATE UI
+    // ========================
     const el = document.getElementById("lastBuy")
 
     if(el){
       el.innerText =
-        `Last Buy: $${Math.floor(usd).toLocaleString()} • ${new Date(tx.blockTime * 1000).toLocaleTimeString()}`
+        `$${Math.floor(usd).toLocaleString()} • ${new Date(tx.blockTime * 1000).toLocaleTimeString()}`
     }
 
   }catch(err){
