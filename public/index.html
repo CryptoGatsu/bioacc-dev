@@ -473,49 +473,80 @@ function drawChart(){
   if(!canvas) return
 
   const ctx = canvas.getContext("2d")
+
   ctx.clearRect(0,0,canvas.width,canvas.height)
 
   if(chartData.length < 2) return
 
-  const PADDING_TOP = 25
-  const PADDING_BOTTOM = 25
-  const usableHeight = canvas.height - PADDING_TOP - PADDING_BOTTOM
-
   const max = Math.max(...chartData)
   const min = Math.min(...chartData)
   const range = max - min || 1
-  const mid = (max + min) / 2
+
+  const paddingTop = 10
+  const paddingBottom = 30
 
   ctx.beginPath()
 
   chartData.forEach((p,i)=>{
     const x = (i / (chartData.length - 1)) * canvas.width
-    const normalized = (p - mid) / range
 
-    const y = canvas.height/2 - normalized * usableHeight
+    const y =
+      paddingTop +
+      (1 - (p - min) / range) *
+      (canvas.height - paddingTop - paddingBottom)
+
+    if(i === 0) ctx.moveTo(x,y)
+    else ctx.lineTo(x,y)
+  })
+
+  // 🌟 SOFT OUTER GLOW
+  ctx.strokeStyle = "#7CFF3A"
+  ctx.lineWidth = 2
+
+  ctx.shadowColor = "#7CFF3A"
+  ctx.shadowBlur = 18
+
+  ctx.stroke()
+
+  ctx.shadowBlur = 0
+
+  // 🔥 SHARP INNER LINE
+  ctx.beginPath()
+
+  chartData.forEach((p,i)=>{
+    const x = (i / (chartData.length - 1)) * canvas.width
+    const y =
+      paddingTop +
+      (1 - (p - min) / range) *
+      (canvas.height - paddingTop - paddingBottom)
 
     if(i === 0) ctx.moveTo(x,y)
     else ctx.lineTo(x,y)
   })
 
   ctx.strokeStyle = "#7CFF3A"
-  ctx.lineWidth = 2.5
-  ctx.shadowColor = "#7CFF3A"
-  ctx.shadowBlur = 16
+  ctx.lineWidth = 1
   ctx.stroke()
-  ctx.shadowBlur = 0
 
+  // 🟢 GLOW DOT (FIXED)
   const last = chartData[chartData.length - 1]
-  const normalized = (last - mid) / range
-  const y = canvas.height/2 - normalized * usableHeight
-  const x = canvas.width - 6
+
+  const x = canvas.width - 4
+  const y =
+    paddingTop +
+    (1 - (last - min) / range) *
+    (canvas.height - paddingTop - paddingBottom)
 
   ctx.beginPath()
-  ctx.arc(x, y, 5, 0, Math.PI*2)
+  ctx.arc(x, y, 4, 0, Math.PI*2)
+
   ctx.fillStyle = "#7CFF3A"
+
   ctx.shadowColor = "#7CFF3A"
-  ctx.shadowBlur = 22
+  ctx.shadowBlur = 25
+
   ctx.fill()
+
   ctx.shadowBlur = 0
 }
 
@@ -589,33 +620,26 @@ setInterval(fastLastBuy, 1500)
 // ========================
 
 const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
-const HELIUS_API_KEY = "abe30281-08a6-4f68-921b-4da93db84835"
+
+const HELIUS_API =
+  `https://api.helius.xyz/v0/addresses/${TOKEN_MINT}/transactions?api-key=abe30281-08a6-4f68-921b-4da93db84835&limit=25`
 
 let latestSig = null
-let polling = false
 
 async function pollRecentSwaps(){
-
-  if(polling) return
-  polling = true
 
   try{
 
     const res = await fetch(HELIUS_API)
 
     if(res.status === 429){
-      console.log("rate limited — backing off")
-      setTimeout(() => polling = false, 5000)
+      console.log("rate limited")
       return
     }
 
     const txs = await res.json()
 
-    if(!Array.isArray(txs)){
-      console.log("bad response", txs)
-      polling = false
-      return
-    }
+    if(!Array.isArray(txs)) return
 
     for(const tx of txs){
 
@@ -624,9 +648,12 @@ async function pollRecentSwaps(){
       const swap = tx.events?.swap
       if(!swap) continue
 
-      const usd =
+      // 🔥 CORRECT USD EXTRACTION
+      let usd =
         swap.nativeInput?.amountUsd ||
+        swap.nativeOutput?.amountUsd ||
         swap.tokenInputs?.[0]?.amountUsd ||
+        swap.tokenOutputs?.[0]?.amountUsd ||
         0
 
       if(usd < 1) continue
@@ -637,7 +664,7 @@ async function pollRecentSwaps(){
 
       if(el){
         el.innerText =
-          `$${Math.floor(usd).toLocaleString()} • ${new Date(tx.timestamp * 1000).toLocaleTimeString()}`
+          `$${usd.toFixed(0)} • ${new Date(tx.timestamp * 1000).toLocaleTimeString()}`
       }
 
       break
@@ -646,14 +673,12 @@ async function pollRecentSwaps(){
   }catch(err){
     console.log("swap error", err)
   }
-
-  polling = false
 }
 
 // ========================
 // 🔁 POLL LOOP
 // ========================
-setInterval(pollRecentSwaps, 8000)
+setInterval(pollRecentSwaps, 4000)
 
 
 
