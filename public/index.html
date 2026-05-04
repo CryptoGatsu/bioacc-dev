@@ -597,23 +597,21 @@ async function loadStats(){
   try{
 
     // ========================
-    // GLOBAL STATS (UNCHANGED)
-    // ========================
-    const projRes = await fetch("/api/projects")
-    const projects = await projRes.json()
+// GLOBAL STATS (FIXED)
+// ========================
+const projRes = await fetch("/api/projects")
+const projects = await projRes.json()
 
-    const voteRes = await fetch("/api/vote")
-    const votes = await voteRes.json()
+const manRes = await fetch("/api/manifesto")
+const signers = await manRes.json()
 
-    const manRes = await fetch("/api/manifesto")
-    const signers = await manRes.json()
+// ✅ FIX: derive votes from projects
+let totalVotes = 0
+projects.forEach(p => totalVotes += p.votes || 0)
 
-    let totalVotes = 0
-    votes.forEach(v => totalVotes += v.amount || 0)
-
-    document.getElementById("statProjects").innerText = projects.length || 0
-    document.getElementById("statVotes").innerText = totalVotes
-    document.getElementById("statSigners").innerText = signers.length || 0
+document.getElementById("statProjects").innerText = projects.length || 0
+document.getElementById("statVotes").innerText = totalVotes
+document.getElementById("statSigners").innerText = signers.length || 0
 
 
     // ========================
