@@ -116,7 +116,7 @@ async function loadProfileStats(wallet){
 
     console.log("stats data:", data)
 
-
+    setText("statVotes", data.totalVotes || 0)
     setText("statProjects", (data.projectsVoted || []).length)
     setText("statManifesto", data.hasSigned ? "yes" : "no")
 
@@ -140,7 +140,7 @@ let profileReady = false
 async function initProfile(){
 
   if(profileReady) return
-  if(!window.wallet) return
+  if(!window.wallet || window.wallet === "undefined") return
 
   profileReady = true
 
