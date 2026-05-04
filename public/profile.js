@@ -116,7 +116,7 @@ async function loadProfileStats(wallet){
 
     console.log("stats data:", data)
 
-    setText("statVotes", data.totalVotes || 0)
+
     setText("statProjects", (data.projectsVoted || []).length)
     setText("statManifesto", data.hasSigned ? "yes" : "no")
 
