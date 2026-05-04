@@ -244,27 +244,37 @@ text-decoration:underline;
 <button class="connect-btn" onclick="connectWallet()">connect wallet</button>
 <p id="walletStatus"></p>
 
+<!-- ========================
+🧬 CONTRACT SECTION (UPGRADED)
+======================== -->
+<div class="contract" style="text-align:center;margin-bottom:30px;">
+
+  <div style="color:#777;font-size:14px;">
+    bio/acc contract
+  </div>
+
+  <div onclick="copyCA()" style="
+    margin-top:10px;
+    font-size:18px;
+    font-weight:bold;
+    color:#7CFF3A;
+    text-shadow:0 0 12px #7CFF3A;
+    cursor:pointer;
+    word-break:break-all;
+  ">
+    CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump
+  </div>
+
+  <div style="font-size:12px;color:#777;margin-top:6px;">
+    click to copy
+  </div>
+
 </div>
 
-<div class="contract">
-bio/acc contract
-<br><br>
-<b>CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump</b>
-<br><br>
 
-<a class="button" href="https://dexscreener.com/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw">buy</a>
-
-<br><br>
-
-market cap: <span id="marketCap">loading...</span>
-<br><br>
-
-<a class="button" onclick="refreshMarketCap()">refresh market cap</a>
-
-<div id="marketStatus" style="color:#777;font-size:14px;margin-top:10px;"></div>
-
-</div>
-
+<!-- ========================
+📈 LIVE MARKET
+======================== -->
 <h2>bio/acc live market</h2>
 
 <div id="priceChart" style="
@@ -283,7 +293,7 @@ market cap: <span id="marketCap">loading...</span>
     display:block;
   "></canvas>
 
-  <!-- 🔥 DATA BAR (CLEAN + ALIGNED) -->
+  <!-- 🔥 DATA BAR -->
   <div style="
     position:absolute;
     bottom:0;
@@ -317,6 +327,32 @@ market cap: <span id="marketCap">loading...</span>
     </div>
 
   </div>
+
+</div>
+
+
+<!-- ========================
+🚀 BUY BUTTON (MOVED + UPGRADED)
+======================== -->
+<div style="text-align:center;margin-top:25px;">
+
+  <a href="https://dexscreener.com/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw"
+     target="_blank"
+     style="
+       display:inline-block;
+       background:#7CFF3A;
+       color:#000;
+       padding:14px 30px;
+       font-size:16px;
+       text-decoration:none;
+       box-shadow:0 0 14px #7CFF3A;
+       transition:0.2s;
+     "
+     onmouseover="this.style.transform='scale(1.05)'"
+     onmouseout="this.style.transform='scale(1)'"
+  >
+    support $bio/acc
+  </a>
 
 </div>
 
@@ -371,6 +407,18 @@ bio/acc is a movement accelerating biotechnology.
 <script src="/profile.js"></script>
 
 <script>
+
+  function copyCA(){
+  const ca = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
+  navigator.clipboard.writeText(ca)
+
+  const el = document.querySelector(".contract div:nth-child(2)")
+  if(el){
+    const old = el.innerText
+    el.innerText = "copied!"
+    setTimeout(()=> el.innerText = ca, 1000)
+  }
+}
 
 // ========================
 // 🔗 PROFILE LINK
@@ -501,12 +549,10 @@ updateSolPrice()
 const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
 const HELIUS_RPC = "https://rpc.helius.xyz/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
 
-let polling = false
+let seenSigs = new Set()
+let latestTime = 0
 
 async function pollRecentSwaps(){
-
-  if(polling) return
-  polling = true
 
   try{
 
@@ -517,7 +563,7 @@ async function pollRecentSwaps(){
         jsonrpc:"2.0",
         id:1,
         method:"getSignaturesForAddress",
-        params:[TOKEN_MINT,{limit:5}]
+        params:[TOKEN_MINT,{limit:10}]
       })
     })
 
@@ -525,14 +571,22 @@ async function pollRecentSwaps(){
     const sigs = data.result || []
 
     for(const s of sigs){
+
+      if(seenSigs.has(s.signature)) continue
+
+      seenSigs.add(s.signature)
+
       await parseTransaction(s.signature)
+
+      // keep memory small
+      if(seenSigs.size > 50){
+        seenSigs = new Set([...seenSigs].slice(-25))
+      }
     }
 
   }catch(err){
     console.log("poll error", err)
   }
-
-  polling = false
 }
 
 async function parseTransaction(signature){
@@ -553,7 +607,11 @@ async function parseTransaction(signature){
     const txData = await txRes.json()
     const tx = txData.result
 
-    if(!tx || !tx.meta) return
+    if(!tx || !tx.meta || !tx.blockTime) return
+
+    // 🧠 only newest transaction
+    if(tx.blockTime <= latestTime) return
+    latestTime = tx.blockTime
 
     const pre = tx.meta.preBalances
     const post = tx.meta.postBalances
@@ -570,9 +628,10 @@ async function parseTransaction(signature){
     const usd = maxSpent * solPrice
 
     const el = document.getElementById("lastBuy")
+
     if(el){
       el.innerText =
-        `$${Math.floor(usd).toLocaleString()} • ${new Date().toLocaleTimeString()}`
+        `Last Buy: $${Math.floor(usd).toLocaleString()} • ${new Date(tx.blockTime * 1000).toLocaleTimeString()}`
     }
 
   }catch(err){
