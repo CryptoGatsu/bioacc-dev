@@ -2,44 +2,52 @@ export default async function handler(req, res){
 
   try{
 
-    const items = []
+    let items = []
 
     // ========================
-    // 🧪 BIO RXIV (REAL LINKS)
+    // 🧪 BIO RXIV (REAL)
     // ========================
     try{
       const r = await fetch("https://api.biorxiv.org/details/biorxiv/2026-05-01/2026-05-04")
       const data = await r.json()
 
-      for(const p of (data.collection || []).slice(0,10)){
-        items.push({
-          title: p.title,
-          url: `https://www.biorxiv.org/content/${p.doi}v1`, // ✅ direct paper
-          source: "bioRxiv",
-          date: p.date
-        })
-      }
+      items.push(...data.collection.slice(0,8).map(p => ({
+        title: p.title,
+        url: `https://www.biorxiv.org/content/${p.doi}v1`,
+        source: "bioRxiv",
+        date: p.date
+      })))
     }catch(e){
       console.log("biorxiv fail", e)
     }
 
-
     // ========================
-    // 🧬 PUBMED (REAL LINKS)
+    // 🧬 PUBMED (REAL TITLES)
     // ========================
     try{
-      const r = await fetch(
-        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&sort=date&retmax=8&term=biotech&retmode=json"
+      const search = await fetch(
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&sort=date&retmax=6&term=biotech&retmode=json"
+      )
+      const searchData = await search.json()
+
+      const ids = searchData.esearchresult.idlist.join(",")
+
+      const summary = await fetch(
+        `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${ids}&retmode=json`
       )
 
-      const data = await r.json()
+      const sumData = await summary.json()
 
-      for(const id of (data.esearchresult.idlist || [])){
+      for(const id of ids.split(",")){
+        const article = sumData.result[id]
+
+        if(!article) continue
+
         items.push({
-          title: "PubMed biotech paper",
-          url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`, // ✅ direct paper
+          title: article.title,
+          url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`,
           source: "PubMed",
-          date: new Date()
+          date: new Date(article.pubdate || Date.now())
         })
       }
 
@@ -49,34 +57,40 @@ export default async function handler(req, res){
 
 
     // ========================
-    // 🚨 BREAKING SIGNALS (REALISTIC STRUCTURE)
+    // 📰 REAL BIOTECH NEWS (RSS PARSED)
     // ========================
-    items.push(
-      {
-        title: "FDA approves CRISPR-based therapy for rare disease",
-        url: "https://www.fda.gov/drugs",
-        source: "FDA",
-        date: new Date()
-      },
-      {
-        title: "Biotech startup raises $120M to expand gene therapy pipeline",
-        url: "https://endpts.com/biotech-funding",
-        source: "Endpoints",
-        date: new Date()
-      },
-      {
-        title: "Phase 3 oncology trial hits primary endpoint with strong survival data",
-        url: "https://www.fiercebiotech.com/biotech",
-        source: "Fierce",
-        date: new Date()
+    try{
+      const rss = await fetch("https://endpts.com/feed/")
+      const xml = await rss.text()
+
+      const matches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)]
+
+      for(const m of matches.slice(0,5)){
+        const block = m[1]
+
+        const title = block.match(/<title>(.*?)<\/title>/)?.[1]
+        const link = block.match(/<link>(.*?)<\/link>/)?.[1]
+        const date = block.match(/<pubDate>(.*?)<\/pubDate>/)?.[1]
+
+        if(title && link){
+          items.push({
+            title: title.replace(/<!\[CDATA\[|\]\]>/g,""),
+            url: link,
+            source: "Endpoints",
+            date: new Date(date)
+          })
+        }
       }
-    )
+
+    }catch(e){
+      console.log("rss fail", e)
+    }
 
 
     // ========================
-    // 🧠 SCORING ENGINE (EVENT-BASED)
+    // 🧠 SCORE
     // ========================
-    let scored = items.map(i => ({
+    items = items.map(i => ({
       ...i,
       score: scoreAlpha(i.title)
     }))
@@ -85,46 +99,51 @@ export default async function handler(req, res){
     // ========================
     // 🔥 TREND DETECTION
     // ========================
-    const keywordMap = {}
+    const wordMap = {}
 
-    for(const item of scored){
-
+    for(const item of items){
       const words = item.title.toLowerCase().split(" ")
-
       for(const w of words){
         if(w.length < 5) continue
-        keywordMap[w] = (keywordMap[w] || 0) + 1
+        wordMap[w] = (wordMap[w] || 0) + 1
       }
     }
 
-    scored = scored.map(item => {
-
-      let trendBoost = 0
-
-      const words = item.title.toLowerCase().split(" ")
-
-      for(const w of words){
-        if(keywordMap[w] >= 3){
-          trendBoost += 2
-        }
+    items = items.map(i => {
+      let boost = 0
+      for(const w of i.title.toLowerCase().split(" ")){
+        if(wordMap[w] >= 3) boost += 2
       }
-
       return {
-        ...item,
-        score: item.score + trendBoost,
-        trending: trendBoost > 0
+        ...i,
+        score: i.score + boost,
+        trending: boost > 0
       }
+    })
+
+
+    // ========================
+    // ❌ REMOVE DUPLICATES
+    // ========================
+    const seen = new Set()
+    items = items.filter(i => {
+      if(seen.has(i.title)) return false
+      seen.add(i.title)
+      return true
     })
 
 
     // ========================
     // SORT
     // ========================
-    scored.sort((a,b) => b.score - a.score)
+    items.sort((a,b) =>
+      b.score - a.score ||
+      new Date(b.date) - new Date(a.date)
+    )
 
 
     return res.json({
-      items: scored.slice(0,30),
+      items: items.slice(0,25),
       lastUpdated: Date.now()
     })
 
@@ -137,34 +156,29 @@ export default async function handler(req, res){
 
 
 // ========================
-// 🧠 TRUE ALPHA SCORING
+// 🧠 ALPHA SCORING
 // ========================
 function scoreAlpha(title){
 
   let score = 0
   const t = title.toLowerCase()
 
-  // 🚨 MARKET MOVING EVENTS
   if(t.includes("fda")) score += 8
   if(t.includes("approval")) score += 7
   if(t.includes("phase 3")) score += 6
   if(t.includes("trial")) score += 4
   if(t.includes("endpoint")) score += 5
 
-  // 💰 CAPITAL FLOW
   if(t.includes("raises")) score += 5
   if(t.includes("funding")) score += 5
   if(t.includes("$")) score += 4
 
-  // 🧬 SCIENCE EDGE
   if(t.includes("crispr")) score += 4
   if(t.includes("gene therapy")) score += 4
   if(t.includes("oncology")) score += 3
 
-  // ⚡ BREAKTHROUGH LANGUAGE
-  if(t.includes("first")) score += 2
   if(t.includes("breakthrough")) score += 3
-  if(t.includes("significant")) score += 2
+  if(t.includes("first")) score += 2
 
   return score
 }
