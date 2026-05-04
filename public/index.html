@@ -614,73 +614,83 @@ async function parseTransaction(signature){
 
   try{
 
-    const txRes = await fetch(HELIUS_RPC,{
+    const res = await fetch(HELIUS_RPC,{
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
         jsonrpc:"2.0",
         id:1,
         method:"getTransaction",
-        params:[signature,{encoding:"jsonParsed"}]
+        params:[
+          signature,
+          {
+            encoding:"jsonParsed",
+            maxSupportedTransactionVersion:0
+          }
+        ]
       })
     })
 
-    const txData = await txRes.json()
-    const tx = txData.result
+    const json = await res.json()
+    const tx = json.result
 
-    if(!tx || !tx.meta || !tx.blockTime) return
+    if(!tx || !tx.meta) return
 
-    // only newest
-    if(tx.blockTime <= latestTime) return
-    latestTime = tx.blockTime
+    // ========================
+    // 🔎 TOKEN RECEIVED
+    // ========================
+    let tokenReceived = 0
 
-    const balances = tx.meta.postTokenBalances || []
-    const preBalances = tx.meta.preTokenBalances || []
+    const postTokens = tx.meta.postTokenBalances || []
+    const preTokens  = tx.meta.preTokenBalances || []
 
-    let tokenBought = 0
+    for(let post of postTokens){
+      if(post.mint === TOKEN_MINT){
 
-    for(let i=0;i<balances.length;i++){
+        const pre = preTokens.find(p =>
+          p.accountIndex === post.accountIndex
+        )
 
-      const post = balances[i]
-      const pre = preBalances.find(p => p.accountIndex === post.accountIndex)
+        const before = Number(pre?.uiTokenAmount?.amount || 0)
+        const after  = Number(post.uiTokenAmount?.amount || 0)
 
-      if(!post || !post.mint) continue
+        const diff = (after - before) / (10 ** post.uiTokenAmount.decimals)
 
-      // 🎯 match YOUR TOKEN
-      if(post.mint !== TOKEN_MINT) continue
-
-      const postAmount = Number(post.uiTokenAmount.amount || 0)
-      const preAmount = Number(pre?.uiTokenAmount.amount || 0)
-
-      const diff = (postAmount - preAmount) / (10 ** post.uiTokenAmount.decimals)
-
-      if(diff > tokenBought){
-        tokenBought = diff
+        if(diff > 0){
+          tokenReceived += diff
+        }
       }
     }
 
-    if(tokenBought <= 0) return
+    if(tokenReceived <= 0) return
 
     // ========================
-    // 💰 ESTIMATE USD VALUE
+    // 💰 SOL SPENT
     // ========================
-    const pairRes = await fetch("https://api.dexscreener.com/latest/dex/pairs/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw")
-    const pairData = await pairRes.json()
+    let solSpent = 0
 
-    const price = Number(pairData.pair?.priceUsd || 0)
-    const usd = tokenBought * price
+    const pre = tx.meta.preBalances || []
+    const post = tx.meta.postBalances || []
 
-    // ignore dust
-    if(usd < 1) return
+    for(let i=0;i<pre.length;i++){
+      const diff = (pre[i] - post[i]) / 1e9
+      if(diff > solSpent) solSpent = diff
+    }
+
+    if(solSpent < 0.01) return
+
+    const usd = solSpent * solPrice
 
     // ========================
     // 🟢 UPDATE UI
     // ========================
+    latestSig = signature
+
     const el = document.getElementById("lastBuy")
 
     if(el){
       el.innerText =
-        `$${Math.floor(usd).toLocaleString()} • ${new Date(tx.blockTime * 1000).toLocaleTimeString()}`
+        `$${Math.floor(usd).toLocaleString()} • ${new Date().toLocaleTimeString()}`
     }
 
   }catch(err){
