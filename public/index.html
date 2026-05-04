@@ -575,47 +575,6 @@ setInterval(updateSolPrice, 30000)
 updateSolPrice()
 
 // ========================
-// ⚡ FAST LAST BUY (REAL-TIME FEEL)
-// ========================
-let lastBuyTime = 0
-
-async function fastLastBuy(){
-
-  try{
-
-    const res = await fetch(
-      "https://api.dexscreener.com/latest/dex/pairs/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw"
-    )
-
-    const data = await res.json()
-
-    const pair = data.pair
-    if(!pair) return
-
-    const buys = pair.txns?.buys || 0
-
-    // fake-trigger when buy count changes
-    const now = Date.now()
-
-    if(now - lastBuyTime < 3000) return
-
-    lastBuyTime = now
-
-    const el = document.getElementById("lastBuy")
-
-    if(el){
-      el.innerText =
-        `$${Math.floor(Math.random()*40)+10} • ${new Date().toLocaleTimeString()}`
-    }
-
-  }catch(err){
-    console.log("fast buy error", err)
-  }
-}
-
-setInterval(fastLastBuy, 1500)
-
-// ========================
 // 🔴 REAL BUY DETECTOR (FINAL)
 // ========================
 
@@ -641,17 +600,25 @@ async function pollRecentSwaps(){
 
     if(!Array.isArray(txs)) return
 
+    // 🔥 FIX: process NEWEST FIRST
     for(const tx of txs){
 
+      // stop when we reach already processed tx
       if(tx.signature === latestSig) break
 
       const swap = tx.events?.swap
       if(!swap) continue
 
-      // 🔥 CORRECT USD EXTRACTION
+      // must involve our token
+      const isRelevant =
+        swap.tokenOutputs?.some(t => t.mint === TOKEN_MINT) ||
+        swap.tokenInputs?.some(t => t.mint === TOKEN_MINT)
+
+      if(!isRelevant) continue
+
+      // 💰 BEST USD EXTRACTION (Dex-like)
       let usd =
         swap.nativeInput?.amountUsd ||
-        swap.nativeOutput?.amountUsd ||
         swap.tokenInputs?.[0]?.amountUsd ||
         swap.tokenOutputs?.[0]?.amountUsd ||
         0
@@ -667,6 +634,7 @@ async function pollRecentSwaps(){
           `$${usd.toFixed(0)} • ${new Date(tx.timestamp * 1000).toLocaleTimeString()}`
       }
 
+      // only take MOST RECENT valid tx
       break
     }
 
@@ -678,7 +646,7 @@ async function pollRecentSwaps(){
 // ========================
 // 🔁 POLL LOOP
 // ========================
-setInterval(pollRecentSwaps, 4000)
+setInterval(pollRecentSwaps, 2000)
 
 
 
@@ -769,9 +737,6 @@ async function parseTransaction(signature){
     console.log("parse error", err)
   }
 }
-
-// 🔁 SAFE POLLING (NO WEBSOCKET SPAM)
-setInterval(pollRecentSwaps, 4000)
 
 // ========================
 // 📊 STATS
