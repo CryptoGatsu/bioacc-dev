@@ -16,6 +16,10 @@ export default async function handler(req, res){
 
     console.log("PROFILE STATS START:", wallet)
 
+    if(typeof wallet !== "string" || wallet.length < 30){
+  return res.status(400).json({ error:"invalid wallet" })
+}
+
     // ========================
     // TOKEN BALANCE (SAFE)
     // ========================

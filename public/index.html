@@ -593,82 +593,85 @@ function checkVoteReset(stats){
   return stats
 }
 
-async function loadStats(){
+async function loadStats(wallet){
+
+  if(!wallet){
+    console.log("No wallet — skipping stats")
+    return
+  }
+
   try{
 
     // ========================
-// GLOBAL STATS (FIXED)
-// ========================
-const projRes = await fetch("/api/projects")
-const projects = await projRes.json()
+    // GLOBAL STATS
+    // ========================
+    const projRes = await fetch("/api/projects")
+    const projects = await projRes.json()
 
-const manRes = await fetch("/api/manifesto")
-const signers = await manRes.json()
+    const manRes = await fetch("/api/manifesto")
+    const signers = await manRes.json()
 
-// ✅ FIX: derive votes from projects
-let totalVotes = 0
-projects.forEach(p => totalVotes += p.votes || 0)
+    let totalVotes = 0
+    projects.forEach(p => totalVotes += p.votes || 0)
 
-document.getElementById("statProjects").innerText = projects.length || 0
-document.getElementById("statVotes").innerText = totalVotes
-document.getElementById("statSigners").innerText = signers.length || 0
+    document.getElementById("statProjects").innerText = projects.length || 0
+    document.getElementById("statVotes").innerText = totalVotes
+    document.getElementById("statSigners").innerText = signers.length || 0
 
 
     // ========================
-    // USER STATS (FIXED)
+    // USER STATS (ONLY FETCH ONCE ✅)
     // ========================
-    const profileRes = await fetch("/api/profile-stats")
-    let stats = await profileRes.json()
-
+    let stats = await fetchStats(wallet)
     if(!stats) return
 
     const beforeResetTime = stats.lastVoteTime
 
-    // 🔥 APPLY RESET LOGIC
+    // apply reset logic
     stats = checkVoteReset(stats)
 
-    // ========================
-    // SAVE IF RESET HAPPENED
-    // ========================
+    // save if changed
     if(beforeResetTime !== stats.lastVoteTime){
       await fetch("/api/profile-stats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(stats)
+        body: JSON.stringify({ wallet, ...stats })
       })
     }
 
+
     // ========================
-// UPDATE USER UI (FIXED)
-// ========================
-const votesEl = document.getElementById("userVotes")
-const resetEl = document.getElementById("voteReset")
+    // UPDATE USER UI
+    // ========================
+    const votesEl = document.getElementById("userVotes")
+    const resetEl = document.getElementById("voteReset")
 
-if(votesEl){
+    if(votesEl){
+      const used = stats.maxVotes - (stats.votesRemaining ?? stats.maxVotes)
+      votesEl.innerText = `${used} / ${stats.maxVotes}`
+    }
 
-  // how many votes used THIS cycle
-  const used = stats.maxVotes - (stats.votesRemaining ?? stats.maxVotes)
-
-  votesEl.innerText = `${used} / ${stats.maxVotes}`
-}
-
-if(resetEl){
-
-  // only show timer if user has used votes
-  if(stats.lastVoteTime){
-    const remaining = getTimeRemaining(stats.lastVoteTime)
-    resetEl.innerText = remaining
-  }else{
-    resetEl.innerText = "ready"
-  }
-}
+    if(resetEl){
+      if(stats.lastVoteTime){
+        const remaining = getTimeRemaining(stats.lastVoteTime)
+        resetEl.innerText = remaining
+      }else{
+        resetEl.innerText = "ready"
+      }
+    }
 
   }catch(err){
     console.log("stats error", err)
   }
 }
 
-setInterval(loadStats, 10000)
+let CURRENT_WALLET = null
+
+setInterval(() => {
+  if(CURRENT_WALLET){
+    loadStats(CURRENT_WALLET)
+  }
+}, 10000)
 
 // ========================
 // 🧬 FEED (UNCHANGED CORE)
