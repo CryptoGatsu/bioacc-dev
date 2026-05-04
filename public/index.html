@@ -544,10 +544,8 @@ setInterval(updateSolPrice, 30000)
 updateSolPrice()
 
 // ========================
-// 🔴 REAL SWAP PARSER (WORKING)
+// 🔴 REAL BUY DETECTOR (FINAL)
 // ========================
-
-const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
 
 let latestSig = null
 
@@ -560,28 +558,23 @@ async function pollRecentSwaps(){
     )
 
     const txs = await res.json()
-
     if(!txs || txs.length === 0) return
 
-    // 🔥 process newest FIRST
     for(const tx of txs){
 
       if(tx.signature === latestSig) break
 
-      // ========================
-      // 🧬 TOKEN RECEIVED
-      // ========================
       const tokenTransfer = tx.tokenTransfers?.find(
         t => t.mint === TOKEN_MINT && t.toUserAccount
       )
 
       if(!tokenTransfer) continue
 
-      // ========================
-      // 💰 SOL SPENT
-      // ========================
+      const buyer = tokenTransfer.toUserAccount
+
+      // 🔥 MATCH SAME WALLET SPENDING SOL
       const solTransfer = tx.nativeTransfers?.find(
-        t => t.amount > 0
+        t => t.fromUserAccount === buyer
       )
 
       if(!solTransfer) continue
@@ -591,9 +584,6 @@ async function pollRecentSwaps(){
 
       const usd = solSpent * solPrice
 
-      // ========================
-      // 🟢 UPDATE UI
-      // ========================
       latestSig = tx.signature
 
       const el = document.getElementById("lastBuy")
@@ -606,11 +596,8 @@ async function pollRecentSwaps(){
       break
     }
 
-    // debug (optional)
-    console.log("TXS:", txs)
-
   }catch(err){
-    console.log("helius swap error", err)
+    console.log("swap error", err)
   }
 }
 
