@@ -293,14 +293,14 @@ text-decoration:underline;
     display:block;
   "></canvas>
 
-  <!-- 🔥 DATA BAR -->
+  <!-- 🔥 DATA BAR (MC ONLY) -->
   <div style="
     position:absolute;
     bottom:0;
     left:0;
     right:0;
     display:flex;
-    justify-content:space-between;
+    justify-content:flex-end;
     align-items:center;
     padding:10px 15px;
     border-top:1px solid #111;
@@ -308,14 +308,6 @@ text-decoration:underline;
     backdrop-filter: blur(4px);
     font-size:13px;
   ">
-
-    <!-- LAST BUY -->
-    <div style="
-      color:#00ffcc;
-      text-shadow:0 0 6px #00ffcc;
-    ">
-      <span id="lastBuy">Last Buy: -</span>
-    </div>
 
     <!-- MARKET CAP -->
     <div style="
@@ -574,182 +566,6 @@ async function updateSolPrice(){
 setInterval(updateSolPrice, 30000)
 updateSolPrice()
 
-// ========================
-// 🔴 REAL BUY DETECTOR (HYBRID READY)
-// ========================
-
-const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
-
-const HELIUS_API =
-  `https://api.helius.xyz/v0/addresses/${TOKEN_MINT}/transactions?api-key=abe30281-08a6-4f68-921b-4da93db84835&limit=25`
-
-let latestSig = null
-let lastUpdateTime = 0 // 🔥 prevents stale overwrites
-
-// ========================
-// 🔁 POLL (ACCURACY LAYER)
-// ========================
-async function pollRecentSwaps(){
-
-  try{
-
-    const res = await fetch(HELIUS_API)
-
-    if(res.status === 429){
-      console.log("rate limited")
-      return
-    }
-
-    const txs = await res.json()
-
-    if(!Array.isArray(txs)) return
-
-    for(const tx of txs){
-
-      if(tx.signature === latestSig) break
-
-      let usd = 0
-      let txTime = tx.timestamp || 0
-
-      // ========================
-      // ✅ PRIMARY (swap event)
-      // ========================
-      const swap = tx.events?.swap
-
-      if(swap){
-
-        const isRelevant =
-          swap.tokenOutputs?.some(t => t.mint === TOKEN_MINT) ||
-          swap.tokenInputs?.some(t => t.mint === TOKEN_MINT)
-
-        if(!isRelevant) continue
-
-        usd =
-          swap.nativeInput?.amountUsd ||
-          swap.nativeOutput?.amountUsd ||
-          swap.tokenInputs?.[0]?.amountUsd ||
-          swap.tokenOutputs?.[0]?.amountUsd ||
-          0
-      }
-
-      // ========================
-      // 🔥 FALLBACK (NO SWAP EVENT)
-      // ========================
-      else{
-
-        const transfers = tx.tokenTransfers || []
-
-        const received = transfers.some(t =>
-          t.mint === TOKEN_MINT && t.toUserAccount
-        )
-
-        if(!received) continue
-
-        // estimate USD via SOL change
-        usd =
-          tx.nativeTransfers?.[0]?.amountUsd ||
-          0
-      }
-
-      if(usd < 1) continue
-
-      // 🔥 prevent stale overwrite
-      if(txTime < lastUpdateTime) continue
-
-      latestSig = tx.signature
-      lastUpdateTime = txTime
-
-      updateLastBuy(usd, txTime)
-
-      break
-    }
-
-  }catch(err){
-    console.log("swap error", err)
-  }
-}
-
-// ========================
-// 🔁 POLL LOOP (SAFE)
-// ========================
-setInterval(pollRecentSwaps, 2000)
-
-
-// ========================
-// ⚡ FAST PARSER (WS HOOK READY)
-// ========================
-async function parseTransaction(signature){
-
-  try{
-
-    const res = await fetch(HELIUS_RPC,{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({
-        jsonrpc:"2.0",
-        id:1,
-        method:"getTransaction",
-        params:[
-          signature,
-          {
-            encoding:"jsonParsed",
-            maxSupportedTransactionVersion:0
-          }
-        ]
-      })
-    })
-
-    const json = await res.json()
-    const tx = json.result
-
-    if(!tx || !tx.meta) return
-
-    let solSpent = 0
-
-    const pre = tx.meta.preBalances || []
-    const post = tx.meta.postBalances || []
-
-    for(let i=0;i<pre.length;i++){
-      const diff = (pre[i] - post[i]) / 1e9
-      if(diff > solSpent) solSpent = diff
-    }
-
-    if(solSpent < 0.01) return
-
-    const usd = solSpent * solPrice
-
-    const txTime = tx.blockTime || Date.now()/1000
-
-    // 🔥 same protection as polling
-    if(txTime < lastUpdateTime) return
-
-    lastUpdateTime = txTime
-
-    updateLastBuy(usd, txTime)
-
-  }catch(err){
-    console.log("parse error", err)
-  }
-}
-
-
-// ========================
-// 🟢 SINGLE SOURCE OF TRUTH (UI)
-// ========================
-function updateLastBuy(usd, timestamp){
-
-  const el = document.getElementById("lastBuy")
-  if(!el) return
-
-  const time = new Date(timestamp * 1000).toLocaleTimeString()
-
-  el.innerText =
-    `$${Math.floor(usd).toLocaleString()} • ${time}`
-
-  // subtle flash
-  el.style.opacity = 0.4
-  setTimeout(()=> el.style.opacity = 1, 120)
-}
 
 // ========================
 // 📊 STATS
