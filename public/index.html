@@ -554,7 +554,7 @@ async function pollRecentSwaps(){
   try{
 
     const res = await fetch(
-      `https://api.helius.xyz/v0/addresses/${TOKEN_MINT}/transactions?api-key=abe30281-08a6-4f68-921b-4da93db84835&limit=25`
+      `https://api.helius.xyz/v0/addresses/${TOKEN_MINT}/transactions?api-key=${HELIUS_API_KEY}&limit=25`
     )
 
     const txs = await res.json()
@@ -572,7 +572,6 @@ async function pollRecentSwaps(){
 
       const buyer = tokenTransfer.toUserAccount
 
-      // 🔥 MATCH SAME WALLET SPENDING SOL
       const solTransfer = tx.nativeTransfers?.find(
         t => t.fromUserAccount === buyer
       )
