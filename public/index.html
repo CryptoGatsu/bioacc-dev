@@ -269,44 +269,53 @@ market cap: <span id="marketCap">loading...</span>
 
 <div id="priceChart" style="
   border:1px solid #222;
-  padding:20px;
   margin-top:20px;
   position:relative;
-  height:220px;
+  height:240px;
   background:#050505;
   overflow:hidden;
 ">
 
   <!-- CHART -->
-  <canvas id="chartCanvas" width="900" height="160" style="
+  <canvas id="chartCanvas" width="900" height="170" style="
     width:100%;
-    height:160px;
+    height:170px;
     display:block;
   "></canvas>
 
-  <!-- MARKET CAP -->
+  <!-- 🔥 DATA BAR (CLEAN + ALIGNED) -->
   <div style="
     position:absolute;
-    top:10px;
-    right:15px;
-    color:#7CFF3A;
-    font-size:14px;
-    text-shadow:0 0 8px #7CFF3A;
+    bottom:0;
+    left:0;
+    right:0;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 15px;
+    border-top:1px solid #111;
+    background:rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    font-size:13px;
   ">
-    MC: <span id="liveMarketCap">$-</span>
-  </div>
 
-  <!-- LAST BUY -->
-  <div id="lastBuyContainer" style="
-    position:absolute;
-    bottom:10px;
-    left:15px;
-    color:#00ffcc;
-    font-size:12px;
-    text-shadow:0 0 6px #00ffcc;
-    opacity:0.9;
-  ">
-    Last Buy: <span id="lastBuy">-</span>
+    <!-- LAST BUY -->
+    <div style="
+      color:#00ffcc;
+      text-shadow:0 0 6px #00ffcc;
+    ">
+      Last Buy: <span id="lastBuy">-</span>
+    </div>
+
+    <!-- MARKET CAP -->
+    <div style="
+      color:#7CFF3A;
+      text-shadow:0 0 8px #7CFF3A;
+      font-weight:500;
+    ">
+      MC: <span id="liveMarketCap">$-</span>
+    </div>
+
   </div>
 
 </div>
@@ -411,7 +420,7 @@ async function updateChart(){
 // ========================
 
 const HELIUS_WS = new WebSocket(
-  "wss://rpc.helius.xyz/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
+  "wss://mainnet.helius-rpc.com/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
 )
 
 const HELIUS_RPC = "https://rpc.helius.xyz/?api-key=abe30281-08a6-4f68-921b-4da93db84835"
@@ -419,6 +428,22 @@ const HELIUS_RPC = "https://rpc.helius.xyz/?api-key=abe30281-08a6-4f68-921b-4da9
 const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
 
 let solPrice = 150
+
+let wsConnected = false
+
+HELIUS_WS.onopen = () => {
+  wsConnected = true
+  console.log("helius connected")
+}
+
+HELIUS_WS.onerror = () => {
+  console.log("helius ws error")
+}
+
+HELIUS_WS.onclose = () => {
+  wsConnected = false
+  console.log("helius disconnected")
+}
 
 // ========================
 // 💰 SOL PRICE
@@ -556,15 +581,35 @@ function drawChart(){
 
   if(chartData.length < 2) return
 
+  // ========================
+  // 📏 SAFE DRAW AREA (prevents UI overlap)
+  // ========================
+  const PADDING_TOP = 25
+  const PADDING_BOTTOM = 25
+  const usableHeight = canvas.height - PADDING_TOP - PADDING_BOTTOM
+
+  // ========================
+  // 📊 DATA RANGE
+  // ========================
   const max = Math.max(...chartData)
   const min = Math.min(...chartData)
   const range = max - min || 1
 
+  // 🎯 CENTER baseline (key fix)
+  const mid = (max + min) / 2
+
   ctx.beginPath()
 
   chartData.forEach((p,i)=>{
+
     const x = (i / (chartData.length - 1)) * canvas.width
-    const y = canvas.height - ((p - min) / range) * canvas.height
+
+    // normalize around midpoint instead of bottom
+    const normalized = (p - mid) / range
+
+    const y =
+      canvas.height / 2 -
+      normalized * usableHeight
 
     if(i === 0) ctx.moveTo(x,y)
     else ctx.lineTo(x,y)
@@ -577,26 +622,31 @@ function drawChart(){
   ctx.lineWidth = 2.5
 
   ctx.shadowColor = "#7CFF3A"
-  ctx.shadowBlur = 14
+  ctx.shadowBlur = 16
 
   ctx.stroke()
 
   ctx.shadowBlur = 0
 
   // ========================
-  // 🟢 END DOT
+  // 🟢 END DOT (correct position)
   // ========================
   const last = chartData[chartData.length - 1]
 
-  const x = canvas.width
-  const y = canvas.height - ((last - min) / range) * canvas.height
+  const normalized = (last - mid) / range
+
+  const y =
+    canvas.height / 2 -
+    normalized * usableHeight
+
+  const x = canvas.width - 6
 
   ctx.beginPath()
-  ctx.arc(x - 6, y, 5, 0, Math.PI*2)
+  ctx.arc(x, y, 5, 0, Math.PI*2)
 
   ctx.fillStyle = "#7CFF3A"
   ctx.shadowColor = "#7CFF3A"
-  ctx.shadowBlur = 20
+  ctx.shadowBlur = 22
   ctx.fill()
 
   ctx.shadowBlur = 0
