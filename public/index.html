@@ -608,27 +608,52 @@ async function pollRecentSwaps(){
 
       if(tx.signature === latestSig) break
 
+      let usd = 0
+      let txTime = tx.timestamp || 0
+
+      // ========================
+      // ✅ PRIMARY (swap event)
+      // ========================
       const swap = tx.events?.swap
-      if(!swap) continue
 
-      const isRelevant =
-        swap.tokenOutputs?.some(t => t.mint === TOKEN_MINT) ||
-        swap.tokenInputs?.some(t => t.mint === TOKEN_MINT)
+      if(swap){
 
-      if(!isRelevant) continue
+        const isRelevant =
+          swap.tokenOutputs?.some(t => t.mint === TOKEN_MINT) ||
+          swap.tokenInputs?.some(t => t.mint === TOKEN_MINT)
 
-      let usd =
-        swap.nativeInput?.amountUsd ||
-        swap.nativeOutput?.amountUsd ||
-        swap.tokenInputs?.[0]?.amountUsd ||
-        swap.tokenOutputs?.[0]?.amountUsd ||
-        0
+        if(!isRelevant) continue
+
+        usd =
+          swap.nativeInput?.amountUsd ||
+          swap.nativeOutput?.amountUsd ||
+          swap.tokenInputs?.[0]?.amountUsd ||
+          swap.tokenOutputs?.[0]?.amountUsd ||
+          0
+      }
+
+      // ========================
+      // 🔥 FALLBACK (NO SWAP EVENT)
+      // ========================
+      else{
+
+        const transfers = tx.tokenTransfers || []
+
+        const received = transfers.some(t =>
+          t.mint === TOKEN_MINT && t.toUserAccount
+        )
+
+        if(!received) continue
+
+        // estimate USD via SOL change
+        usd =
+          tx.nativeTransfers?.[0]?.amountUsd ||
+          0
+      }
 
       if(usd < 1) continue
 
-      const txTime = tx.timestamp || 0
-
-      // 🔥 prevent older tx overriding newer WS updates
+      // 🔥 prevent stale overwrite
       if(txTime < lastUpdateTime) continue
 
       latestSig = tx.signature
