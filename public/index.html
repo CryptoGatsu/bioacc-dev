@@ -595,55 +595,42 @@ function checkVoteReset(stats){
 
 async function loadStats(wallet){
 
-  if(!wallet){
-    console.log("No wallet — skipping stats")
-    return
-  }
-
   try{
 
-// ========================
-// GLOBAL STATS (FINAL FIX)
-// ========================
+    // ========================
+    // GLOBAL STATS (ALWAYS RUN)
+    // ========================
 
-let projects = []
-let signers = []
+    let projects = []
+    let signers = []
 
-try {
-  const projRes = await fetch("/api/projects")
-  if (projRes.ok) {
-    projects = await projRes.json()
-  }
-} catch (e) {
-  console.log("projects fetch failed", e)
-}
+    try {
+      const projRes = await fetch("/api/projects")
+      if (projRes.ok) projects = await projRes.json()
+    } catch (e) {}
 
-try {
-  const manRes = await fetch("/api/manifesto")
-  if (manRes.ok) {
-    signers = await manRes.json()
-  }
-} catch (e) {
-  console.log("manifesto fetch failed", e)
-}
+    try {
+      const manRes = await fetch("/api/manifesto")
+      if (manRes.ok) signers = await manRes.json()
+    } catch (e) {}
 
-// ✅ SAFE CALCULATION
-let totalVotes = 0
-if (Array.isArray(projects)) {
-  projects.forEach(p => {
-    totalVotes += Number(p.votes || 0)
-  })
-}
+    let totalVotes = 0
+    if (Array.isArray(projects)) {
+      projects.forEach(p => {
+        totalVotes += Number(p.votes || 0)
+      })
+    }
 
-// ✅ SAFE UI UPDATE
-document.getElementById("statProjects").innerText = projects.length || 0
-document.getElementById("globalVotes").innerText = totalVotes || 0
-document.getElementById("statSigners").innerText = signers.length || 0
+    document.getElementById("statProjects").innerText = projects.length || 0
+    document.getElementById("globalVotes").innerText = totalVotes || 0
+    document.getElementById("statSigners").innerText = signers.length || 0
 
 
     // ========================
-    // 🔥 USER STATS (SEPARATE)
+    // USER STATS (ONLY IF WALLET)
     // ========================
+    if(!wallet) return
+
     const stats = await fetchStats(wallet)
     if(!stats) return
 
@@ -658,11 +645,9 @@ document.getElementById("statSigners").innerText = signers.length || 0
     }
 
     if(resetEl){
-      if(safeStats.lastVoteTime){
-        resetEl.innerText = getTimeRemaining(safeStats.lastVoteTime)
-      }else{
-        resetEl.innerText = "ready"
-      }
+      resetEl.innerText = safeStats.lastVoteTime
+        ? getTimeRemaining(safeStats.lastVoteTime)
+        : "ready"
     }
 
   }catch(err){
