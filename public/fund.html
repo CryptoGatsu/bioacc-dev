@@ -568,20 +568,27 @@ async function fetchStats(wallet){
 
 function checkVoteReset(stats){
 
+  if(!stats) return null // 🔥 FIX
+
   const DAY = 24 * 60 * 60 * 1000
   const now = Date.now()
 
   if(!stats.lastVoteTime){
-    stats.lastVoteTime = now
     return stats
   }
 
-  if(now - stats.lastVoteTime >= DAY){
+  const timePassed = now - stats.lastVoteTime
+
+  if(timePassed >= DAY){
     console.log("🔄 votes reset")
 
-    stats.totalVotes = 0
-    stats.projectsVoted = []
-    stats.lastVoteTime = now
+    return {
+      ...stats,
+      totalVotes: 0,
+      votesRemaining: stats.maxVotes,
+      projectsVoted: [],
+      lastVoteTime: null
+    }
   }
 
   return stats
@@ -592,9 +599,14 @@ function checkVoteReset(stats){
 // ========================
 async function vote(projectId, index){
 
-  let stats = await fetchStats()
+  const stats = await fetchStats(wallet)
 
-stats = checkVoteReset(stats)
+if(!stats){
+  console.log("no stats — skipping reset")
+  return
+}
+
+checkVoteReset(stats)
 
   try{
 

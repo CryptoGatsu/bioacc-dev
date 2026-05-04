@@ -616,6 +616,7 @@ if(projRes.ok){
 }
 
 let signers = []
+
 try{
   const manRes = await fetch("/api/manifesto")
 
@@ -625,9 +626,12 @@ try{
       signers = data
     }
   }
+
 }catch(err){
-  console.log("manifesto error", err)
+  console.log("manifesto fetch failed", err)
 }
+
+document.getElementById("statSigners").innerText = signers.length
 
 // ✅ TRUE GLOBAL TOTAL
 let totalVotes = 0
