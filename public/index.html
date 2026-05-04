@@ -575,7 +575,7 @@ setInterval(updateSolPrice, 30000)
 updateSolPrice()
 
 // ========================
-// 🔴 REAL BUY DETECTOR (FINAL)
+// 🔴 REAL BUY DETECTOR (HYBRID READY)
 // ========================
 
 const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
@@ -584,7 +584,11 @@ const HELIUS_API =
   `https://api.helius.xyz/v0/addresses/${TOKEN_MINT}/transactions?api-key=abe30281-08a6-4f68-921b-4da93db84835&limit=25`
 
 let latestSig = null
+let lastUpdateTime = 0 // 🔥 prevents stale overwrites
 
+// ========================
+// 🔁 POLL (ACCURACY LAYER)
+// ========================
 async function pollRecentSwaps(){
 
   try{
@@ -600,41 +604,38 @@ async function pollRecentSwaps(){
 
     if(!Array.isArray(txs)) return
 
-    // 🔥 FIX: process NEWEST FIRST
     for(const tx of txs){
 
-      // stop when we reach already processed tx
       if(tx.signature === latestSig) break
 
       const swap = tx.events?.swap
       if(!swap) continue
 
-      // must involve our token
       const isRelevant =
         swap.tokenOutputs?.some(t => t.mint === TOKEN_MINT) ||
         swap.tokenInputs?.some(t => t.mint === TOKEN_MINT)
 
       if(!isRelevant) continue
 
-      // 💰 BEST USD EXTRACTION (Dex-like)
       let usd =
         swap.nativeInput?.amountUsd ||
+        swap.nativeOutput?.amountUsd ||
         swap.tokenInputs?.[0]?.amountUsd ||
         swap.tokenOutputs?.[0]?.amountUsd ||
         0
 
       if(usd < 1) continue
 
+      const txTime = tx.timestamp || 0
+
+      // 🔥 prevent older tx overriding newer WS updates
+      if(txTime < lastUpdateTime) continue
+
       latestSig = tx.signature
+      lastUpdateTime = txTime
 
-      const el = document.getElementById("lastBuy")
+      updateLastBuy(usd, txTime)
 
-      if(el){
-        el.innerText =
-          `$${usd.toFixed(0)} • ${new Date(tx.timestamp * 1000).toLocaleTimeString()}`
-      }
-
-      // only take MOST RECENT valid tx
       break
     }
 
@@ -644,12 +645,14 @@ async function pollRecentSwaps(){
 }
 
 // ========================
-// 🔁 POLL LOOP
+// 🔁 POLL LOOP (SAFE)
 // ========================
 setInterval(pollRecentSwaps, 2000)
 
 
-
+// ========================
+// ⚡ FAST PARSER (WS HOOK READY)
+// ========================
 async function parseTransaction(signature){
 
   try{
@@ -676,37 +679,6 @@ async function parseTransaction(signature){
 
     if(!tx || !tx.meta) return
 
-    // ========================
-    // 🔎 TOKEN RECEIVED
-    // ========================
-    let tokenReceived = 0
-
-    const postTokens = tx.meta.postTokenBalances || []
-    const preTokens  = tx.meta.preTokenBalances || []
-
-    for(let post of postTokens){
-      if(post.mint === TOKEN_MINT){
-
-        const pre = preTokens.find(p =>
-          p.accountIndex === post.accountIndex
-        )
-
-        const before = Number(pre?.uiTokenAmount?.amount || 0)
-        const after  = Number(post.uiTokenAmount?.amount || 0)
-
-        const diff = (after - before) / (10 ** post.uiTokenAmount.decimals)
-
-        if(diff > 0){
-          tokenReceived += diff
-        }
-      }
-    }
-
-    if(tokenReceived <= 0) return
-
-    // ========================
-    // 💰 SOL SPENT
-    // ========================
     let solSpent = 0
 
     const pre = tx.meta.preBalances || []
@@ -721,21 +693,37 @@ async function parseTransaction(signature){
 
     const usd = solSpent * solPrice
 
-    // ========================
-    // 🟢 UPDATE UI
-    // ========================
-    latestSig = signature
+    const txTime = tx.blockTime || Date.now()/1000
 
-    const el = document.getElementById("lastBuy")
+    // 🔥 same protection as polling
+    if(txTime < lastUpdateTime) return
 
-    if(el){
-      el.innerText =
-        `$${Math.floor(usd).toLocaleString()} • ${new Date().toLocaleTimeString()}`
-    }
+    lastUpdateTime = txTime
+
+    updateLastBuy(usd, txTime)
 
   }catch(err){
     console.log("parse error", err)
   }
+}
+
+
+// ========================
+// 🟢 SINGLE SOURCE OF TRUTH (UI)
+// ========================
+function updateLastBuy(usd, timestamp){
+
+  const el = document.getElementById("lastBuy")
+  if(!el) return
+
+  const time = new Date(timestamp * 1000).toLocaleTimeString()
+
+  el.innerText =
+    `$${Math.floor(usd).toLocaleString()} • ${time}`
+
+  // subtle flash
+  el.style.opacity = 0.4
+  setTimeout(()=> el.style.opacity = 1, 120)
 }
 
 // ========================
