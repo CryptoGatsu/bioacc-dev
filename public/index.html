@@ -513,12 +513,12 @@ setTimeout(()=>{line.style.color="#cfcfcf"},400)
 // LOAD FEED
 async function loadResearch(){
 
-  feed.innerHTML = "[loading feed...]"
-
   const feed = document.getElementById("researchFeed")
   const status = document.getElementById("feedStatus")
 
   try{
+
+    feed.innerHTML = "[loading feed...]"
 
     const res = await fetch("/api/news?cache=" + Date.now())
     const data = await res.json()
