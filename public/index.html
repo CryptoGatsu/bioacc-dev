@@ -485,6 +485,11 @@ async function loadResearch(){
   try{
 
     const res = await fetch("/api/news?cache=" + Date.now())
+
+    if(!res.ok){
+      throw new Error("failed to fetch news")
+    }
+
     const data = await res.json()
 
     feed.innerHTML = ""
@@ -496,6 +501,14 @@ async function loadResearch(){
       row.style.padding = "12px"
       row.style.borderBottom = "1px solid #111"
 
+      // 🔥 SOURCE COLOR CODING
+      const sourceColor =
+        item.source === "bioRxiv"
+          ? "#00ffe1"   // neon cyan (preprints)
+          : item.source === "PubMed"
+          ? "#ff9d00"   // orange (validated papers)
+          : "#777"      // fallback
+
       row.innerHTML = `
         <div style="
           color:#7CFF3A;
@@ -505,8 +518,12 @@ async function loadResearch(){
           ${item.title}
         </div>
 
-        <div style="font-size:12px;color:#777;margin-top:4px;">
-          ${item.tag} • ${item.source}
+        <div style="
+          font-size:12px;
+          color:${sourceColor};
+          margin-top:4px;
+        ">
+          ${item.source} • score: ${item.score || 0}
         </div>
       `
 
@@ -524,6 +541,7 @@ async function loadResearch(){
 
   }catch(err){
     feed.innerHTML = "[error loading feed]"
+    console.log("feed error:", err)
   }
 }
 
