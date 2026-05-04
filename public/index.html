@@ -544,14 +544,10 @@ setInterval(updateSolPrice, 30000)
 updateSolPrice()
 
 // ========================
-// 🔴 REAL SWAP PARSER (ACCURATE)
+// 🔴 REAL SWAP PARSER (WORKING)
 // ========================
-const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
 
-const HELIUS_API =
-  "https://api.helius.xyz/v0/addresses/" +
-  TOKEN_MINT +
-  "/transactions?api-key=abe30281-08a6-4f68-921b-4da93db84835"
+const TOKEN_MINT = "CLP3exiqE8drZSzwhPas257cTh1evzq6nr7i1Xwvpump"
 
 let latestSig = null
 
@@ -559,46 +555,59 @@ async function pollRecentSwaps(){
 
   try{
 
-    const res = await fetch(HELIUS_API)
+    const res = await fetch(
+      `https://api.helius.xyz/v0/addresses/${TOKEN_MINT}/transactions?api-key=abe30281-08a6-4f68-921b-4da93db84835&limit=25`
+    )
+
     const txs = await res.json()
 
     if(!txs || txs.length === 0) return
 
+    // 🔥 process newest FIRST
     for(const tx of txs){
 
-  if(tx.signature === latestSig) break
+      if(tx.signature === latestSig) break
 
-  const swap = tx.events?.swap
+      // ========================
+      // 🧬 TOKEN RECEIVED
+      // ========================
+      const tokenTransfer = tx.tokenTransfers?.find(
+        t => t.mint === TOKEN_MINT && t.toUserAccount
+      )
 
-  // ❗ DO NOT require tx.type === "SWAP"
-  if(!swap) continue
+      if(!tokenTransfer) continue
 
-  const output = swap.tokenOutputs?.find(
-    t => t.mint === TOKEN_MINT
-  )
+      // ========================
+      // 💰 SOL SPENT
+      // ========================
+      const solTransfer = tx.nativeTransfers?.find(
+        t => t.amount > 0
+      )
 
-  if(!output) continue
+      if(!solTransfer) continue
 
-  let usd =
-    swap.nativeInput?.amountUsd ||
-    swap.tokenInputs?.[0]?.amountUsd ||
-    0
+      const solSpent = solTransfer.amount / 1e9
+      if(solSpent < 0.01) continue
 
-  if(usd < 1) continue
+      const usd = solSpent * solPrice
 
-  latestSig = tx.signature
+      // ========================
+      // 🟢 UPDATE UI
+      // ========================
+      latestSig = tx.signature
 
-  const el = document.getElementById("lastBuy")
+      const el = document.getElementById("lastBuy")
 
-  if(el){
-    el.innerText =
-      `Last Buy: $${Math.floor(usd).toLocaleString()} • ${new Date(tx.timestamp * 1000).toLocaleTimeString()}`
-  }
+      if(el){
+        el.innerText =
+          `$${Math.floor(usd).toLocaleString()} • ${new Date(tx.timestamp * 1000).toLocaleTimeString()}`
+      }
 
-  break
-}
+      break
+    }
 
-console.log("TXS:", txs)
+    // debug (optional)
+    console.log("TXS:", txs)
 
   }catch(err){
     console.log("helius swap error", err)
