@@ -484,7 +484,7 @@ async function loadResearch(){
 
   try{
 
-    const res = await fetch("/news.json?cache=" + Date.now())
+    const res = await fetch("/api/news?cache=" + Date.now())
     const data = await res.json()
 
     feed.innerHTML = ""
