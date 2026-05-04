@@ -535,18 +535,38 @@ if(!confirmed){
 // 🔥 FETCH USER STATS
 // ========================
 async function fetchStats(){
+
   try{
-    const res = await fetch("/api/profile-stats")
-    if(!res.ok) throw new Error("failed to fetch stats")
 
-    const stats = await res.json()
-
-    return stats || {
-      totalVotes: 0,
-      projectsVoted: [],
-      maxVotes: 25,
-      lastVoteTime: Date.now()
+    if(!window.wallet){
+      throw new Error("no wallet")
     }
+
+    const res = await fetch(`/api/profile-stats?wallet=${window.wallet}`)
+
+    if(!res.ok){
+      throw new Error("failed to fetch stats")
+    }
+
+    let stats = await res.json()
+
+    // 🔥 APPLY RESET LOGIC
+    const before = stats.lastVoteTime
+    stats = checkVoteReset(stats)
+
+    // 🔥 IF RESET HAPPENED → SAVE IT
+    if(before !== stats.lastVoteTime){
+      await fetch("/api/profile-stats",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          wallet: window.wallet,
+          stats
+        })
+      })
+    }
+
+    return stats
 
   }catch(err){
     console.log("fetchStats error", err)
