@@ -97,45 +97,28 @@ export default async function handler(req, res){
       console.log("MANIFESTO PARSE ERROR:", manText)
     }
 
-    // ========================
-// COMPUTE (FIXED + RESET)
 // ========================
-let totalVotes = votes.reduce((sum, v) => sum + (v.amount || 0), 0)
+// COMPUTE (FIXED PROPERLY)
+// ========================
+const totalVotes = votes.reduce((sum, v) => sum + (v.amount || 0), 0)
 
-let projectsVoted = [...new Set(votes.map(v => v.project_id))]
+const projectsVoted = [...new Set(votes.map(v => v.project_id))]
 
-let lastVoteTime = votes.length > 0
+const lastVoteTime = votes.length > 0
   ? Math.max(...votes.map(v => new Date(v.created_at).getTime()))
   : null
 
 // ========================
-// 🔁 24H RESET LOGIC
+// 🔁 24H RESET (NO DELETE)
 // ========================
 const DAY = 24 * 60 * 60 * 1000
 
+let votesUsed = totalVotes
+
 if (lastVoteTime && (Date.now() - lastVoteTime > DAY)) {
-  console.log("RESETTING VOTES FOR:", wallet)
+  console.log("USER VOTES RESET (soft reset):", wallet)
 
-  totalVotes = 0
-  projectsVoted = []
-  lastVoteTime = Date.now()
-
-  // 🔥 HARD RESET (recommended so UI + DB match)
-  try {
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/votes?wallet=eq.${wallet}`,
-      {
-        method: "DELETE",
-        headers: {
-          apikey: KEY,
-          Authorization: `Bearer ${KEY}`
-        }
-      }
-    )
-    console.log("votes cleared from DB")
-  } catch (err) {
-    console.log("failed to clear votes", err)
-  }
+  votesUsed = 0
 }
 
 // ========================
@@ -144,13 +127,18 @@ if (lastVoteTime && (Date.now() - lastVoteTime > DAY)) {
 const userTokens = await getTokenBalance(wallet)
 const maxVotes = Math.floor(userTokens / 1_000_000)
 
-console.log("TOKENS:", userTokens, "MAX VOTES:", maxVotes)
+// remaining votes user can use
+const votesRemaining = Math.max(0, maxVotes - votesUsed)
+
+console.log("TOKENS:", userTokens)
+console.log("USED:", votesUsed, "MAX:", maxVotes)
 
 // ========================
 // 🚀 RESPONSE
 // ========================
 return res.status(200).json({
-  totalVotes,
+  totalVotes: votesUsed,
+  votesRemaining,
   projectsVoted,
   hasSigned: manifesto.length > 0,
   maxVotes,

@@ -641,19 +641,29 @@ async function loadStats(){
     }
 
     // ========================
-    // UPDATE USER UI
-    // ========================
-    const votesEl = document.getElementById("userVotes")
-    const resetEl = document.getElementById("voteReset")
+// UPDATE USER UI (FIXED)
+// ========================
+const votesEl = document.getElementById("userVotes")
+const resetEl = document.getElementById("voteReset")
 
-    if(votesEl){
-      votesEl.innerText = `${stats.totalVotes} / ${stats.maxVotes}`
-    }
+if(votesEl){
 
-    if(resetEl){
-      const remaining = getTimeRemaining(stats.lastVoteTime)
-      resetEl.innerText = remaining
-    }
+  // how many votes used THIS cycle
+  const used = stats.maxVotes - (stats.votesRemaining ?? stats.maxVotes)
+
+  votesEl.innerText = `${used} / ${stats.maxVotes}`
+}
+
+if(resetEl){
+
+  // only show timer if user has used votes
+  if(stats.lastVoteTime){
+    const remaining = getTimeRemaining(stats.lastVoteTime)
+    resetEl.innerText = remaining
+  }else{
+    resetEl.innerText = "ready"
+  }
+}
 
   }catch(err){
     console.log("stats error", err)
