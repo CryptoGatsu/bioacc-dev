@@ -98,35 +98,71 @@ export default async function handler(req, res){
     }
 
     // ========================
-    // COMPUTE
-    // ========================
-    const totalVotes = votes.reduce((sum,v)=>sum + (v.amount || 0),0)
+// COMPUTE (FIXED + RESET)
+// ========================
+let totalVotes = votes.reduce((sum, v) => sum + (v.amount || 0), 0)
 
-    const projectsVoted = [...new Set(votes.map(v => v.project_id))]
+let projectsVoted = [...new Set(votes.map(v => v.project_id))]
 
-    const lastVoteTime = votes.length > 0
-      ? Math.max(...votes.map(v => new Date(v.created_at).getTime()))
-      : null
+let lastVoteTime = votes.length > 0
+  ? Math.max(...votes.map(v => new Date(v.created_at).getTime()))
+  : null
 
-    const userTokens = await getTokenBalance(wallet)
-    const maxVotes = Math.floor(userTokens / 1_000_000)
+// ========================
+// 🔁 24H RESET LOGIC
+// ========================
+const DAY = 24 * 60 * 60 * 1000
 
-    console.log("TOKENS:", userTokens, "MAX VOTES:", maxVotes)
+if (lastVoteTime && (Date.now() - lastVoteTime > DAY)) {
+  console.log("RESETTING VOTES FOR:", wallet)
 
-    return res.status(200).json({
-      totalVotes,
-      projectsVoted,
-      hasSigned: manifesto.length > 0,
-      maxVotes,
-      lastVoteTime
-    })
+  totalVotes = 0
+  projectsVoted = []
+  lastVoteTime = Date.now()
 
-  }catch(err){
-    console.log("PROFILE STATS FATAL:", err)
-
-    return res.status(500).json({
-      error:"server crash",
-      details: err.message
-    })
+  // 🔥 HARD RESET (recommended so UI + DB match)
+  try {
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/votes?wallet=eq.${wallet}`,
+      {
+        method: "DELETE",
+        headers: {
+          apikey: KEY,
+          Authorization: `Bearer ${KEY}`
+        }
+      }
+    )
+    console.log("votes cleared from DB")
+  } catch (err) {
+    console.log("failed to clear votes", err)
   }
+}
+
+// ========================
+// 💰 TOKEN + LIMITS
+// ========================
+const userTokens = await getTokenBalance(wallet)
+const maxVotes = Math.floor(userTokens / 1_000_000)
+
+console.log("TOKENS:", userTokens, "MAX VOTES:", maxVotes)
+
+// ========================
+// 🚀 RESPONSE
+// ========================
+return res.status(200).json({
+  totalVotes,
+  projectsVoted,
+  hasSigned: manifesto.length > 0,
+  maxVotes,
+  lastVoteTime
+})
+
+} catch (err) {
+  console.log("PROFILE STATS FATAL:", err)
+
+  return res.status(500).json({
+    error: "server crash",
+    details: err.message
+  })
+}
 }
