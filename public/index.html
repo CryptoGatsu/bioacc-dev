@@ -655,12 +655,18 @@ async function loadStats(wallet){
   }
 }
 
+console.log("LOAD STATS RUNNING:", wallet)
+
 let CURRENT_WALLET = null
 
+// ✅ RUN ON PAGE LOAD (GLOBAL STATS)
+window.addEventListener("DOMContentLoaded", () => {
+  loadStats(null)
+})
+
+// ✅ KEEP UPDATING
 setInterval(() => {
-  if(CURRENT_WALLET){
-    loadStats(CURRENT_WALLET)
-  }
+  loadStats(CURRENT_WALLET)
 }, 10000)
 
 // ========================
