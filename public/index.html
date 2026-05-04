@@ -276,6 +276,17 @@ market cap: <span id="marketCap">loading...</span>
 [boot] initializing...
 </div>
 
+<button id="refreshFeed">refresh feed</button>
+
+<div style="margin-top:10px;font-size:12px;color:#666;">
+  <div style="color:#00ffcc;">HIGH SIGNAL (8+): FDA / funding / major breakthroughs</div>
+  <div style="color:#7CFF3A;">MEDIUM (5–7): strong research / emerging trends</div>
+  <div style="color:#888;">LOW (<5): early or weak signals</div>
+  <div>🔥 = trending topic across multiple studies</div>
+</div>
+
+
+
 <div id="feedStatus" style="margin-top:10px;color:#777;font-size:14px;"></div>
 
 <div class="cta">
@@ -310,6 +321,21 @@ bio/acc is a movement accelerating biotechnology.
 <script src="/profile.js"></script>
 
 <script>
+
+  let lastRefresh = 0
+
+document.getElementById("refreshFeed").onclick = () => {
+
+  const now = Date.now()
+
+  if(now - lastRefresh < 10000){
+    alert("cooldown...")
+    return
+  }
+
+  lastRefresh = now
+  loadResearch()
+}
 
 // 🔥 FIX: ASYNC PROFILE LINK
 async function profileLink(wallet){
@@ -417,6 +443,8 @@ status.innerText="market data unavailable"
 }
 
 
+
+
 // 🔥 STATS (UNCHANGED — GitHub source)
 async function loadStats(){
 
@@ -485,53 +513,34 @@ async function loadResearch(){
   try{
 
     const res = await fetch("/api/news?cache=" + Date.now())
-
-    if(!res.ok){
-      throw new Error("failed to fetch news")
-    }
-
     const data = await res.json()
 
     feed.innerHTML = ""
 
     for(const item of data.items){
 
+      let color = "#555"
+
+      if(item.score >= 8) color = "#00ffcc"   // HIGH (alpha)
+      else if(item.score >= 5) color = "#7CFF3A" // MEDIUM
+      else color = "#888" // LOW
+
       const row = document.createElement("div")
 
       row.style.padding = "12px"
       row.style.borderBottom = "1px solid #111"
 
-      // 🔥 SOURCE COLOR CODING
-      const sourceColor =
-        item.source === "bioRxiv"
-          ? "#00ffe1"   // neon cyan (preprints)
-          : item.source === "PubMed"
-          ? "#ff9d00"   // orange (validated papers)
-          : "#777"      // fallback
-
       row.innerHTML = `
-        <div style="
-          color:#7CFF3A;
-          text-shadow:0 0 8px #7CFF3A;
-          font-size:15px;
-        ">
-          ${item.title}
+        <div style="color:${color};text-shadow:0 0 8px ${color};">
+          ${item.trending ? "🔥 " : ""}${item.title}
         </div>
 
-        <div style="
-          font-size:12px;
-          color:${sourceColor};
-          margin-top:4px;
-        ">
-          ${item.source} • score: ${item.score || 0}
+        <div style="font-size:12px;color:#777;margin-top:4px;">
+          ${item.source} • score: ${item.score}
         </div>
       `
 
-      row.onclick = () => {
-        window.open(item.url, "_blank")
-      }
-
-      row.style.cursor = "pointer"
+      row.onclick = () => window.open(item.url, "_blank")
 
       feed.appendChild(row)
     }
@@ -541,7 +550,6 @@ async function loadResearch(){
 
   }catch(err){
     feed.innerHTML = "[error loading feed]"
-    console.log("feed error:", err)
   }
 }
 
