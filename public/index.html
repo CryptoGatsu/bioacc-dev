@@ -245,7 +245,32 @@ market cap: <span id="marketCap">loading...</span>
 
 </div>
 
-<h2>live biotech intelligence terminal</h2>
+<h2>bio/acc live market</h2>
+
+<div id="priceChart" style="
+  border:1px solid #222;
+  padding:20px;
+  margin-top:20px;
+  position:relative;
+  height:180px;
+  background:#050505;
+">
+
+  <canvas id="chartCanvas" width="800" height="140"></canvas>
+
+  <div style="
+    position:absolute;
+    top:10px;
+    right:15px;
+    color:#7CFF3A;
+    font-size:14px;
+  ">
+    MC: <span id="liveMarketCap">$-</span>
+  </div>
+
+</div>
+
+<h2>live biotech intelligence</h2>
 
 <div class="researchFeed" id="researchFeed">
 [boot] initializing...
@@ -305,6 +330,74 @@ function goProfile(wallet){
 window.location = "/profile?wallet=" + wallet
 }
 
+let chartData = []
+
+async function updateChart(){
+
+  try{
+    const res = await fetch("https://api.dexscreener.com/latest/dex/pairs/solana/c3wrylbj6v8pqwxmtszgrdpysxptncmip3k5txmkv1xw")
+    const data = await res.json()
+
+    const price = data.pair?.priceUsd || 0
+    const mc = data.pair?.fdv || 0
+
+    document.getElementById("liveMarketCap").innerText =
+      "$" + Number(mc).toLocaleString()
+
+    chartData.push(Number(price))
+
+    if(chartData.length > 60) chartData.shift()
+
+    drawChart()
+
+  }catch(err){
+    console.log("chart error", err)
+  }
+}
+
+function drawChart(){
+  const canvas = document.getElementById("chartCanvas")
+  const ctx = canvas.getContext("2d")
+
+  ctx.clearRect(0,0,canvas.width,canvas.height)
+
+  if(chartData.length < 2) return
+
+  const max = Math.max(...chartData)
+  const min = Math.min(...chartData)
+
+  const range = max - min || 1
+
+  ctx.beginPath()
+
+  chartData.forEach((p,i)=>{
+    const x = (i / chartData.length) * canvas.width
+    const y = canvas.height - ((p - min) / range) * canvas.height
+
+    if(i === 0) ctx.moveTo(x,y)
+    else ctx.lineTo(x,y)
+  })
+
+  // glow
+  ctx.strokeStyle = "#7CFF3A"
+  ctx.lineWidth = 2
+  ctx.shadowColor = "#7CFF3A"
+  ctx.shadowBlur = 10
+  ctx.stroke()
+
+  // glowing dot
+  const last = chartData[chartData.length - 1]
+  const x = canvas.width
+  const y = canvas.height - ((last - min) / range) * canvas.height
+
+  ctx.beginPath()
+  ctx.arc(x-4, y, 4, 0, Math.PI*2)
+  ctx.fillStyle = "#7CFF3A"
+  ctx.shadowBlur = 20
+  ctx.fill()
+}
+
+setInterval(updateChart, 3000)
 
 // MARKET CAP
 async function refreshMarketCap(){
