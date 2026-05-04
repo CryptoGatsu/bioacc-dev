@@ -49,13 +49,34 @@ h2{color:#7CFF3A;margin-top:50px;}
 
 .section{margin-bottom:40px;}
 
-button{
-background:#7CFF3A;
-border:none;
-padding:10px 16px;
-cursor:pointer;
-color:black;
-margin-top:15px;
+.button,
+.btn {
+  background: #7CFF3A;
+  color: #000;
+  border: none;
+  padding: 12px 22px;
+  font-size: 14px;
+  font-family: Courier New, monospace;
+  text-transform: lowercase;
+  text-decoration: none;
+  display: inline-block;
+  cursor: pointer;
+
+  /* ✨ unified glow */
+  box-shadow: 0 0 12px #7CFF3A;
+  transition: all 0.2s ease;
+}
+
+.button:hover,
+.btn:hover {
+  box-shadow: 0 0 22px #7CFF3A;
+  transform: translateY(-1px);
+}
+
+.button:disabled,
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 textarea{
