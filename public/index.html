@@ -602,81 +602,74 @@ async function loadStats(wallet){
 
   try{
 
-// ========================
-// GLOBAL STATS (FINAL FIX)
-// ========================
-const projRes = await fetch("/api/projects")
-
-let projects = []
-
-if(projRes.ok){
-  const data = await projRes.json()
-
-  if(Array.isArray(data)){
-    projects = data
-  } else if(Array.isArray(data.data)){
-    projects = data.data
-  }
-}
-
-let totalVotes = 0
-projects.forEach(p => totalVotes += Number(p.votes || 0))
-
-console.log("PROJECTS:", projects)
-console.log("GLOBAL TOTAL:", totalVotes)
-
-document.getElementById("statProjects").innerText = projects.length
-document.getElementById("statVotes").innerText = totalVotes
-
-// MANIFESTO SAFE
-let signers = []
-try{
-  const res = await fetch("/api/manifesto")
-  if(res.ok){
-    const data = await res.json()
-    if(Array.isArray(data)) signers = data
-  }
-}catch{}
-
-document.getElementById("statSigners").innerText = signers.length || 0
-
-
     // ========================
-    // USER STATS (ONLY FETCH ONCE ✅)
+    // 🔥 GLOBAL STATS (FIRST)
     // ========================
-    let stats = await fetchStats(wallet)
-    if(!stats) return
+    const projRes = await fetch("/api/projects")
 
-    const beforeResetTime = stats.lastVoteTime
+    let projects = []
 
-    // apply reset logic
-    stats = checkVoteReset(stats)
+    if(projRes.ok){
+      const data = await projRes.json()
 
-    // save if changed
-    if(beforeResetTime !== stats.lastVoteTime){
-      await fetch("/api/profile-stats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wallet, ...stats })
-      })
+      if(Array.isArray(data)){
+        projects = data
+      } else if(Array.isArray(data.data)){
+        projects = data.data
+      }
     }
 
+    let totalVotes = 0
+    projects.forEach(p => totalVotes += Number(p.votes || 0))
+
+    console.log("PROJECTS:", projects)
+    console.log("GLOBAL TOTAL:", totalVotes)
+
+    document.getElementById("statProjects").innerText = projects.length
+    document.getElementById("statVotes").innerText = totalVotes
+
 
     // ========================
-    // UPDATE USER UI
+    // 🔥 MANIFESTO (FIXED)
     // ========================
+    let signers = []
+
+    try{
+      const manRes = await fetch("/api/manifesto")
+
+      if(manRes.ok){
+        const data = await manRes.json()
+        if(Array.isArray(data)){
+          signers = data
+        }
+      }
+
+    }catch(err){
+      console.log("manifesto error", err)
+    }
+
+    document.getElementById("statSigners").innerText = signers.length || 0
+
+
+    // ========================
+    // 🔥 USER STATS (SEPARATE)
+    // ========================
+    const stats = await fetchStats(wallet)
+    if(!stats) return
+
+    const safeStats = checkVoteReset(stats)
+
     const votesEl = document.getElementById("userVotes")
     const resetEl = document.getElementById("voteReset")
 
     if(votesEl){
-      const used = stats.maxVotes - (stats.votesRemaining ?? stats.maxVotes)
-      votesEl.innerText = `${used} / ${stats.maxVotes}`
+      const used = safeStats.maxVotes - (safeStats.votesRemaining ?? safeStats.maxVotes)
+      votesEl.innerText = `${used} / ${safeStats.maxVotes}`
     }
 
     if(resetEl){
-      if(stats.lastVoteTime){
-        const remaining = getTimeRemaining(stats.lastVoteTime)
-        resetEl.innerText = remaining
+      if(safeStats.lastVoteTime){
+        resetEl.innerText = getTimeRemaining(safeStats.lastVoteTime)
       }else{
         resetEl.innerText = "ready"
       }
