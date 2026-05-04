@@ -1,5 +1,3 @@
-import fetch from "node-fetch"
-
 function scoreItem(text = ""){
   const t = text.toLowerCase()
   let score = 0
