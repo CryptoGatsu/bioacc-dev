@@ -112,6 +112,26 @@ display:inline-block;
 cursor:pointer;
 }
 
+.btn {
+  background: #7CFF3A;
+  color: black;
+  border: none;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  text-transform: lowercase;
+  box-shadow: 0 0 10px #7CFF3A;
+  transition: 0.2s;
+}
+
+.btn:hover {
+  box-shadow: 0 0 20px #7CFF3A;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+}
+
 .researchFeed{
 background:#050505;
 border:1px solid #222;
@@ -276,7 +296,7 @@ market cap: <span id="marketCap">loading...</span>
 [boot] initializing...
 </div>
 
-<button id="refreshFeed">refresh feed</button>
+<button id="refreshFeed" class="btn">refresh feed</button>
 
 <div style="margin-top:10px;font-size:12px;color:#666;">
   <div style="color:#00ffcc;">HIGH SIGNAL (8+): FDA / funding / major breakthroughs</div>
@@ -322,20 +342,6 @@ bio/acc is a movement accelerating biotechnology.
 
 <script>
 
-  let lastRefresh = 0
-
-document.getElementById("refreshFeed").onclick = () => {
-
-  const now = Date.now()
-
-  if(now - lastRefresh < 10000){
-    alert("cooldown...")
-    return
-  }
-
-  lastRefresh = now
-  loadResearch()
-}
 
 // 🔥 FIX: ASYNC PROFILE LINK
 async function profileLink(wallet){
@@ -507,6 +513,8 @@ setTimeout(()=>{line.style.color="#cfcfcf"},400)
 // LOAD FEED
 async function loadResearch(){
 
+  feed.innerHTML = "[loading feed...]"
+
   const feed = document.getElementById("researchFeed")
   const status = document.getElementById("feedStatus")
 
@@ -551,6 +559,59 @@ async function loadResearch(){
   }catch(err){
     feed.innerHTML = "[error loading feed]"
   }
+}
+
+let lastRefresh = 0
+let cooldown = 10000 // 10 sec
+let refreshing = false
+
+const btn = document.getElementById("refreshFeed")
+
+btn.onclick = async () => {
+
+  const now = Date.now()
+
+  // cooldown check
+  if(now - lastRefresh < cooldown){
+    return
+  }
+
+  refreshing = true
+  lastRefresh = now
+
+  // UI: loading state
+  btn.innerText = "loading..."
+  btn.disabled = true
+  btn.style.opacity = "0.6"
+
+  await loadResearch()
+
+  refreshing = false
+
+  // start cooldown timer
+  startCooldown()
+}
+
+function startCooldown(){
+
+  const btn = document.getElementById("refreshFeed")
+
+  const interval = setInterval(() => {
+
+    const remaining = cooldown - (Date.now() - lastRefresh)
+
+    if(remaining <= 0){
+      clearInterval(interval)
+
+      btn.innerText = "refresh feed"
+      btn.disabled = false
+      btn.style.opacity = "1"
+      return
+    }
+
+    btn.innerText = "refresh (" + Math.ceil(remaining / 1000) + "s)"
+
+  }, 500)
 }
 
 
