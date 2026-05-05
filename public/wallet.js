@@ -130,6 +130,7 @@ window.connectWallet = async function(){
     window.wallet = newWallet
     localStorage.setItem("wallet", window.wallet)
     updateWalletUI()
+    await loadStats(window.wallet) 
 
     await window.loadBackend()
     await loadWalletData()
@@ -157,6 +158,7 @@ window.autoConnect = async function(){
     if(provider && provider.isPhantom){
       const res = await provider.connect({ onlyIfTrusted: true })
       window.wallet = res.publicKey.toString()
+      CURRENT_WALLET = window.wallet
       localStorage.setItem("wallet", window.wallet)
     } else {
       window.wallet = localStorage.getItem("wallet")
