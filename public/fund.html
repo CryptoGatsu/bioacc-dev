@@ -487,21 +487,6 @@ async function loadProjects(){
 // ========================
 async function submitProject(){
 
-  // 🚫 HARD BLOCK (prevents server crash no matter what)
-if(window.lastSubmitTime){
-  const now = Date.now()
-  const diff = now - window.lastSubmitTime
-  const limit = 24 * 60 * 60 * 1000
-
-  if(diff < limit){
-    const remaining = limit - diff
-    const hours = Math.floor(remaining / (1000 * 60 * 60))
-    const mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60))
-
-    return alert(`wait ${hours}h ${mins}m before submitting again`)
-  }
-}
-
   if(!window.wallet) return alert("connect wallet")
 
   const statusEl = document.getElementById("status")
@@ -768,17 +753,72 @@ function formatDate(dateStr){
   const d = new Date(dateStr)
 
   return d.toLocaleString(undefined, {
+    year: "numeric",
     month: "short",
     day: "numeric",
-    year: "numeric",
     hour: "numeric",
     minute: "2-digit"
   })
 }
 
 // ========================
-// SUBMISSION LIMIT CHECK
+// 🔥 LIVE SUBMISSION LIMIT (FIXED)
 // ========================
+
+let cooldownInterval = null
+
+function formatCooldown(ms){
+  if(ms <= 0) return null
+
+  const hours = Math.floor(ms / (1000 * 60 * 60))
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
+  const seconds = Math.floor((ms % (1000 * 60)) / 1000)
+
+  return `${hours}h ${minutes}m ${seconds}s`
+}
+
+function startCooldownTimer(lastTime){
+  const button = document.getElementById("submitBtn")
+  const info = document.getElementById("submitInfo")
+
+  if(cooldownInterval) clearInterval(cooldownInterval)
+
+  cooldownInterval = setInterval(() => {
+    const now = Date.now()
+    const limit = 24 * 60 * 60 * 1000
+
+    const remaining = limit - (now - lastTime)
+
+    if(remaining <= 0){
+      clearInterval(cooldownInterval)
+
+      if(button){
+        button.disabled = false
+        button.style.opacity = 1
+      }
+
+      if(info){
+        info.innerText = "ready to submit"
+      }
+
+      window.lastSubmitTime = null
+      return
+    }
+
+    const formatted = formatCooldown(remaining)
+
+    if(button){
+      button.disabled = true
+      button.style.opacity = 0.5
+    }
+
+    if(info){
+      info.innerText = `one project per 24h (${formatted})`
+    }
+
+  }, 1000)
+}
+
 async function checkSubmissionLimit(wallet){
 
   if(!wallet) return
@@ -794,6 +834,16 @@ async function checkSubmissionLimit(wallet){
 
     if(userProjects.length === 0){
       window.lastSubmitTime = null
+
+      const info = document.getElementById("submitInfo")
+      const button = document.getElementById("submitBtn")
+
+      if(info) info.innerText = "ready to submit"
+      if(button){
+        button.disabled = false
+        button.style.opacity = 1
+      }
+
       return
     }
 
@@ -803,52 +853,14 @@ async function checkSubmissionLimit(wallet){
 
     const lastTime = new Date(latest.created_at).getTime()
 
-    // ✅ STORE THIS (CRITICAL)
     window.lastSubmitTime = lastTime
 
-    const now = Date.now()
-    const diff = now - lastTime
-    const limit = 24 * 60 * 60 * 1000
-
-    const button = document.getElementById("submitBtn")
-    const info = document.getElementById("submitInfo")
-
-    if(diff < limit){
-
-      if(button){
-        button.disabled = true
-        button.style.opacity = 0.5
-      }
-
-      const remaining = limit - diff
-      const hours = Math.floor(remaining / (1000 * 60 * 60))
-      const mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60))
-
-      if(info){
-        info.innerText = `one project per 24h (${hours}h ${mins}m)`
-      }
-
-    } else {
-      if(button){
-        button.disabled = false
-        button.style.opacity = 1
-      }
-
-      if(info){
-        info.innerText = "ready to submit"
-      }
-    }
+    startCooldownTimer(lastTime)
 
   }catch(err){
     console.log("limit check failed", err)
   }
 }
-
-setInterval(()=>{
-  if(window.wallet){
-    checkSubmissionLimit(window.wallet)
-  }
-}, 5000)
 
 // ========================
 // INIT
@@ -867,6 +879,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       console.log("fund stats:", safeStats)
     }
   }
+
+  if(window.wallet){
+  await checkSubmissionLimit(window.wallet)
+}
 
   await loadProjects()
 })
