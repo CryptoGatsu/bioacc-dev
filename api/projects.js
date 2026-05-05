@@ -82,18 +82,29 @@ export default async function handler(req, res){
         return res.status(401).json({ error:"invalid message format" })
       }
 
-      // ========================
-// 🚫 RATE LIMIT: 1 PROJECT / DAY
+// ========================
+// 🚫 RATE LIMIT: 1 PROJECT / DAY (FIXED)
 // ========================
 const DAY = 24 * 60 * 60 * 1000
 const now = Date.now()
 
-const { data: existing } = await supabase
-  .from("projects")
-  .select("created_at")
-  .eq("wallet", wallet)
-  .order("created_at", { ascending: false })
-  .limit(1)
+const checkRes = await fetch(
+  `${SUPABASE_URL}/rest/v1/projects?wallet=eq.${wallet}&select=created_at&order=created_at.desc&limit=1`,
+  {
+    headers:{
+      apikey: KEY,
+      Authorization:`Bearer ${KEY}`
+    }
+  }
+)
+
+if(!checkRes.ok){
+  const err = await checkRes.text()
+  console.error("rate limit fetch failed:", err)
+  return res.status(500).json({ error:"rate limit check failed" })
+}
+
+const existing = await checkRes.json()
 
 if(existing && existing.length > 0){
   const last = new Date(existing[0].created_at).getTime()
