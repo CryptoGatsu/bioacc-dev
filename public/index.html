@@ -709,17 +709,6 @@ async function loadResearch(){
   }
 }
 
-function updateWalletUI(){
-  const btn = document.getElementById("connectBtn")
-
-  if(!btn) return
-
-  if(window.wallet){
-    btn.style.display = "none"
-  } else {
-    btn.style.display = "inline-block"
-  }
-}
 
 // ========================
 // 🚀 INIT
