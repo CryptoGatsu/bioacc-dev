@@ -365,17 +365,7 @@ async function signManifesto(){
   loadSignatures()
 }
 
-function updateWalletUI(){
-  const btn = document.getElementById("connectBtn")
 
-  if(!btn) return
-
-  if(window.wallet){
-    btn.style.display = "none"
-  } else {
-    btn.style.display = "inline-block"
-  }
-}
 
 
 // ========================
@@ -383,7 +373,6 @@ function updateWalletUI(){
 // ========================
 window.addEventListener("DOMContentLoaded", async () => {
   await autoConnect()
-  updateWalletUI()
   await loadSignatures()
 })
 
