@@ -391,6 +391,11 @@ window.updateWalletUI = async function(forceFresh = false){
     title.innerText = name
   }
 
+  const btn = document.getElementById("connectBtn")
+if(btn){
+  btn.style.display = window.wallet ? "none" : "inline-block"
+}
+
   // 🔥 LOAD HEADER STATS
   await loadHeaderStats()
 
