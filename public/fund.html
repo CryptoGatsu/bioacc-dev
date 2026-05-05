@@ -712,44 +712,11 @@ function setWallet(w){
   loadStats(w)
 }
 
-setWallet(resp.publicKey.toString())
+
 
 function shortenWallet(w){
   if(!w) return ""
   return w.slice(0,4) + "..." + w.slice(-4)
-}
-
-function updateWalletUI(){
-  const btn = document.getElementById("connectBtn")
-  const status = document.getElementById("walletStatus")
-  const profileLink = document.getElementById("profileLink")
-
-if(profileLink){
-  if(window.wallet){
-    profileLink.style.display = "inline"
-  } else {
-    profileLink.style.display = "none"
-  }
-}
-
-  if(window.wallet){
-    // hide button
-    if(btn) btn.style.display = "none"
-
-    // show wallet
-    if(status){
-      status.innerText = `connected: ${shortenWallet(window.wallet)}`
-    }
-
-  } else {
-    // show button
-    if(btn) btn.style.display = "inline-block"
-
-    // clear wallet display
-    if(status){
-      status.innerText = ""
-    }
-  }
 }
 
 // ========================
@@ -757,16 +724,14 @@ if(profileLink){
 // ========================
 window.addEventListener("DOMContentLoaded", async () => {
 
-  const w = await autoConnect()
+  await window.autoConnect()
 
-  if(w){
-    CURRENT_WALLET = w
+  if(window.wallet){
+    CURRENT_WALLET = window.wallet
+    await loadStats(window.wallet)
   }
 
-  updateWalletUI()
-  await loadStats(CURRENT_WALLET)
   await loadProjects()
-
 })
 
 </script>
