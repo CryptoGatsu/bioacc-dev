@@ -706,13 +706,25 @@ loadProjects()
 
 function updateWalletUI(){
   const btn = document.getElementById("connectBtn")
-
-  if(!btn) return
+  const status = document.getElementById("walletStatus")
 
   if(window.wallet){
-    btn.style.display = "none"
+    // hide button
+    if(btn) btn.style.display = "none"
+
+    // show wallet
+    if(status){
+      status.innerText = `connected: ${shortenWallet(window.wallet)}`
+    }
+
   } else {
-    btn.style.display = "inline-block"
+    // show button
+    if(btn) btn.style.display = "inline-block"
+
+    // clear wallet display
+    if(status){
+      status.innerText = ""
+    }
   }
 }
 
