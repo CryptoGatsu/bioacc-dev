@@ -704,6 +704,16 @@ loadProjects()
   }
 }
 
+function setWallet(w){
+  window.wallet = w
+  CURRENT_WALLET = w
+
+  updateWalletUI()
+  loadStats(w)
+}
+
+setWallet(resp.publicKey.toString())
+
 function shortenWallet(w){
   if(!w) return ""
   return w.slice(0,4) + "..." + w.slice(-4)
