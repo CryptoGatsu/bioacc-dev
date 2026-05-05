@@ -620,7 +620,7 @@ function checkVoteReset(stats){
 // ========================
 async function vote(projectId, index){
 
-  const stats = await fetchStats(wallet)
+  const stats = await fetchStats(window.wallet)
 
 if(!stats){
   console.log("no stats — skipping reset")
@@ -709,7 +709,15 @@ function setWallet(w){
   CURRENT_WALLET = w
 
   updateWalletUI()
-  loadStats(w)
+
+  // ✅ ONLY do what fund page actually supports
+  if (typeof fetchStats === "function") {
+    fetchStats(w).then(stats => {
+      const safeStats = checkVoteReset(stats)
+
+      console.log("fund stats:", safeStats)
+    })
+  }
 }
 
 
