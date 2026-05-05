@@ -722,6 +722,15 @@ function shortenWallet(w){
 function updateWalletUI(){
   const btn = document.getElementById("connectBtn")
   const status = document.getElementById("walletStatus")
+  const profileLink = document.getElementById("profileLink")
+
+if(profileLink){
+  if(window.wallet){
+    profileLink.style.display = "inline"
+  } else {
+    profileLink.style.display = "none"
+  }
+}
 
   if(window.wallet){
     // hide button
@@ -748,8 +757,14 @@ function updateWalletUI(){
 // ========================
 window.addEventListener("DOMContentLoaded", async () => {
 
-  await autoConnect()
-  updateWalletUI() 
+  const w = await autoConnect()
+
+  if(w){
+    CURRENT_WALLET = w
+  }
+
+  updateWalletUI()
+  await loadStats(CURRENT_WALLET)
   await loadProjects()
 
 })
