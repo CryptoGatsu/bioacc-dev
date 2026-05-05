@@ -83,38 +83,61 @@ export default async function handler(req, res){
       }
 
       // ========================
-      // SAVE TO SUPABASE
-      // ========================
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/projects`,{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          apikey: KEY,
-          Authorization:`Bearer ${KEY}`
-        },
-        body: JSON.stringify({
-          id,
-          name,
-          github,
-          social,
-          website,
-          description,
-          logo,
-          votes: 0,
-          wallet,
-          created_at: new Date().toISOString()
-        })
-      })
+// SAVE TO SUPABASE (FIXED)
+// ========================
+const r = await fetch(`${SUPABASE_URL}/rest/v1/projects`,{
+  method:"POST",
+  headers:{
+    "Content-Type":"application/json",
+    apikey: KEY,
+    Authorization:`Bearer ${KEY}`
+  },
+  body: JSON.stringify({
+    id,
+    name,
+    github,
+    social,
+    website,
+    description,
+    logo,
+    votes: 0,
+    wallet,
+    created_at: new Date().toISOString()
+  })
+})
 
-      const data = await r.json()
+// 🔥 HANDLE ERROR RESPONSE PROPERLY
+if (!r.ok) {
+  const errText = await r.text()
+  console.error("Supabase insert failed:", errText)
 
-      return res.json(data)
-    }
+  return res.status(500).json({
+    error: "database insert failed",
+    details: errText
+  })
+}
 
-    return res.status(405).json({ error:"method not allowed" })
+// 🔥 SAFE RESPONSE PARSING (NO CRASH)
+const text = await r.text()
 
-  }catch(err){
-    console.log("projects api error:", err)
-    return res.status(500).json({ error:"server crash" })
-  }
+let data = null
+try {
+  data = text ? JSON.parse(text) : null
+} catch (e) {
+  console.warn("Non-JSON response from Supabase:", text)
+}
+
+// ✅ ALWAYS RETURN SUCCESS IF INSERT WORKED
+return res.json({
+  success: true,
+  data
+})
+}
+
+return res.status(405).json({ error:"method not allowed" })
+
+}catch(err){
+  console.log("projects api error:", err)
+  return res.status(500).json({ error:"server crash" })
+}
 }
