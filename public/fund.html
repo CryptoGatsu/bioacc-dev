@@ -533,7 +533,7 @@ if(!confirmed){
       social,
       website,
       description:desc,
-      logo,
+      logo: base64Encode(logo),
       wallet:window.wallet,
       signature: Array.from(signed.signature),
       message
