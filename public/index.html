@@ -717,7 +717,8 @@ function refreshFeed(){
     btn.innerText = "refreshing..."
   }
 
-  loadProjects()
+  // ✅ CALL THE CORRECT FUNCTION FOR INDEX PAGE
+  loadResearch() // 🔥 CHANGE THIS IF YOUR FUNCTION NAME IS DIFFERENT
 
   setTimeout(()=>{
     if(btn){
