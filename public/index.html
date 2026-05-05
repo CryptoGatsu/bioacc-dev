@@ -242,7 +242,7 @@ text-decoration:underline;
 <div>signers: <span id="statSigners">-</span></div>
 </div>
 
-<button class="btn" onclick="connectWallet()">connect wallet</button>
+<button id="connectBtn" class="btn" onclick="connectWallet()">connect wallet</button>
 <p id="walletStatus"></p>
 
 <!-- ========================
@@ -709,12 +709,25 @@ async function loadResearch(){
   }
 }
 
+function updateWalletUI(){
+  const btn = document.getElementById("connectBtn")
+
+  if(!btn) return
+
+  if(window.wallet){
+    btn.style.display = "none"
+  } else {
+    btn.style.display = "inline-block"
+  }
+}
+
 // ========================
 // 🚀 INIT
 // ========================
 window.addEventListener("DOMContentLoaded", async () => {
   await autoConnect()
   loadResearch()
+  
 
   if(CURRENT_WALLET){
     loadStats(CURRENT_WALLET)

@@ -129,6 +129,7 @@ window.connectWallet = async function(){
 
     window.wallet = newWallet
     localStorage.setItem("wallet", window.wallet)
+    updateWalletUI()
 
     await window.loadBackend()
     await loadWalletData()

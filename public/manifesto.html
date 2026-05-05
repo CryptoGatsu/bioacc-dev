@@ -278,7 +278,7 @@ Adaptation is no longer optional.
 sign the manifesto and become part of the bio/acc network
 </p>
 
-<button class="btn" onclick="connectWallet()">connect wallet</button>
+<button id="connectBtn" class="btn" onclick="connectWallet()">connect wallet</button>
 <p id="walletStatus"></p>
 
 <textarea id="note" placeholder="leave a note (optional)"></textarea>
@@ -365,12 +365,25 @@ async function signManifesto(){
   loadSignatures()
 }
 
+function updateWalletUI(){
+  const btn = document.getElementById("connectBtn")
+
+  if(!btn) return
+
+  if(window.wallet){
+    btn.style.display = "none"
+  } else {
+    btn.style.display = "inline-block"
+  }
+}
+
 
 // ========================
 // INIT
 // ========================
 window.addEventListener("DOMContentLoaded", async () => {
   await autoConnect()
+  updateWalletUI()
   await loadSignatures()
 })
 

@@ -293,7 +293,7 @@ float:right;
 
 <h1>biotech startup fund</h1>
 
-<button class="btn" onclick="connectWallet()">connect wallet</button>
+<button id="connectBtn" class="btn" onclick="connectWallet()">connect wallet</button>
 <div id="walletStatus"></div>
 
 <h2>startup requirements</h2>
@@ -704,12 +704,25 @@ loadProjects()
   }
 }
 
+function updateWalletUI(){
+  const btn = document.getElementById("connectBtn")
+
+  if(!btn) return
+
+  if(window.wallet){
+    btn.style.display = "none"
+  } else {
+    btn.style.display = "inline-block"
+  }
+}
+
 // ========================
 // INIT
 // ========================
 window.addEventListener("DOMContentLoaded", async () => {
 
   await autoConnect()
+  updateWalletUI() 
   await loadProjects()
 
 })
