@@ -108,7 +108,7 @@ window.getDisplayName = async function(wallet){
 }
 
 // ========================
-// CONNECT WALLET
+// CONNECT WALLET (FIXED)
 // ========================
 window.connectWallet = async function(){
 
@@ -120,25 +120,39 @@ window.connectWallet = async function(){
   }
 
   try{
-    const res = await provider.connect()
-    const newWallet = res.publicKey.toString()
+    const resp = await provider.connect() // ✅ KEEP THIS NAME
 
-    if(window.wallet && window.wallet !== newWallet){
+    const wallet = resp.publicKey.toString()
+
+    // 🔥 RESET if switching wallets
+    if(window.wallet && window.wallet !== wallet){
       window.resetWalletState()
     }
 
-    window.wallet = newWallet
-    localStorage.setItem("wallet", window.wallet)
-    updateWalletUI()
-    await loadStats(window.wallet) 
+    // 🔥 SET GLOBAL STATE
+    window.wallet = wallet
+    CURRENT_WALLET = wallet
+    localStorage.setItem("wallet", wallet)
 
+    console.log("CONNECTED:", wallet)
+
+    // 🔥 LOAD DATA IN CORRECT ORDER
     await window.loadBackend()
     await loadWalletData()
+
+    // 🔥 UPDATE UI ONCE (clean)
     await window.updateWalletUI(true)
 
+    // 🔥 LOAD STATS AFTER UI EXISTS
+    await loadStats(wallet)
+
+    // 🔥 HIDE CONNECT BUTTONS
     document.querySelectorAll(".connect-btn").forEach(btn=>{
       btn.style.display = "none"
     })
+
+    // 🔥 OPTIONAL EVENT (safe)
+    window.dispatchEvent(new CustomEvent("walletConnected", { detail: wallet }))
 
   }catch(err){
     console.log("connect error", err)
