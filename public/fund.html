@@ -704,6 +704,11 @@ loadProjects()
   }
 }
 
+function shortenWallet(w){
+  if(!w) return ""
+  return w.slice(0,4) + "..." + w.slice(-4)
+}
+
 function updateWalletUI(){
   const btn = document.getElementById("connectBtn")
   const status = document.getElementById("walletStatus")
