@@ -317,6 +317,9 @@ float:right;
   choose file
   <input type="file" id="logo" accept="image/*" style="display:none;">
 </label>
+<div style="font-size:12px; color:#888; margin-top:6px;">
+  max file size: 4MB
+</div>
 
 <span id="fileName" style="color:#7CFF3A;margin-left:10px;"></span>
 <textarea id="desc" maxlength="200" placeholder="description (max 200 chars)"></textarea>
@@ -506,6 +509,11 @@ if(!confirmed){
   const file=document.getElementById("logo").files[0]
   let logo=""
 
+  if(file && file.size > 4 * 1024 * 1024){
+  statusEl.innerText = "file too large (max 4MB)"
+  return
+}
+
   if(file){
     logo=await new Promise(r=>{
       const reader=new FileReader()
@@ -513,6 +521,17 @@ if(!confirmed){
       reader.readAsDataURL(file)
     })
   }
+
+  const fileInput = document.getElementById("logo")
+
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files[0]
+  if(!file) return
+
+  const sizeMB = (file.size / (1024*1024)).toFixed(2)
+
+  console.log(`Selected file: ${sizeMB} MB`)
+})
 
   const id = "proj_" + Math.random().toString(36).substring(2,10)
 
