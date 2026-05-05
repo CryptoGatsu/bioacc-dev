@@ -736,7 +736,13 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   if(window.wallet){
     CURRENT_WALLET = window.wallet
-    await loadStats(window.wallet)
+
+    // ✅ SAFE VERSION (NO CRASH)
+    if (typeof fetchStats === "function") {
+      const stats = await fetchStats(window.wallet)
+      const safeStats = checkVoteReset(stats)
+      console.log("fund stats:", safeStats)
+    }
   }
 
   await loadProjects()
