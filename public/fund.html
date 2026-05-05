@@ -384,15 +384,7 @@ document.getElementById("logo").addEventListener("change", e=>{
 // LOAD PROJECTS (SUPABASE)
 // ========================
 async function loadProjects(){
-
-  const res = await fetch("/api/projects")
-
-if(!res.ok){
-  console.error("API failed")
-  return
-}
-
-const projects = await res.json()
+async function loadProjects(){
 
   const container = document.getElementById("projects")
   if(!container) return
@@ -404,8 +396,13 @@ const projects = await res.json()
       fetch("/api/vote")
     ])
 
-    const projects = await projRes.json()
-    const votes = await voteRes.json()
+    if(!projRes.ok){
+      console.error("projects fetch failed")
+      return
+    }
+
+    const projectsData = await projRes.json()
+    const votes = voteRes.ok ? await voteRes.json() : []
 
     // 🔥 BUILD VOTE MAP
     const voteMap = {}
@@ -420,65 +417,70 @@ const projects = await res.json()
     })
 
     // attach votes
-    projects.forEach(p=>{
+    projectsData.forEach(p=>{
       p.realVotes = voteMap[p.id] || 0
       p.userVotes = userVoteMap[p.id] || 0
     })
 
     // sort
-    projects.sort((a,b)=>b.realVotes - a.realVotes)
+    projectsData.sort((a,b)=>b.realVotes - a.realVotes)
 
     container.innerHTML = ""
 
-projects.forEach((p,i)=>{
+    projectsData.forEach((p,i)=>{
 
-  const disabled = (window.remainingVotes ?? window.voteBank) <= 0
+      const disabled = (window.remainingVotes ?? window.voteBank) <= 0
 
-  container.innerHTML += `
-    <div class="project ${i===0?'top1':i===1?'top2':i===2?'top3':''}">
-      
-      <img class="logo" src="${p.logo || ''}" />
+      container.innerHTML += `
+        <div class="project ${i===0?'top1':i===1?'top2':i===2?'top3':''}">
+          
+          <img class="logo" src="${p.logo || ''}" />
 
-      <div class="project-content">
+          <div class="project-content">
 
-        <h3>${p.name}</h3>
+            <h3>${p.name}</h3>
 
-        <div class="links">
-          <a href="${p.github || "#"}" target="_blank">github</a>
-          <a href="${p.social || "#"}" target="_blank">social</a>
-          <a href="${p.website || "#"}" target="_blank">website</a>
+            <div class="links">
+              <a href="${p.github || "#"}" target="_blank">github</a>
+              <a href="${p.social || "#"}" target="_blank">social</a>
+              <a href="${p.website || "#"}" target="_blank">website</a>
+            </div>
+
+            <div class="desc">${p.description || ""}</div>
+
+            <div style="margin-top:10px;">
+              votes: ${p.realVotes || 0}
+            </div>
+
+            <div style="font-size:12px;color:#777;margin-top:4px;">
+              submitted: ${formatDate(p.created_at)}
+            </div>
+
+            <input 
+              id="vote-${i}" 
+              class="vote-input"
+              type="number" 
+              min="1"
+              placeholder="votes"
+            />
+
+            <button 
+              class="button vote-btn"
+              ${disabled ? "disabled" : ""}
+              onclick="vote('${p.id}', ${i})"
+            >
+              ${disabled ? "no votes" : "vote"}
+            </button>
+
+          </div>
         </div>
-
-        <div class="desc">${p.description || ""}</div>
-
-        <div style="margin-top:10px;">
-          votes: ${p.votes || 0}
-        </div>
-
-        <input 
-          id="vote-${i}" 
-          class="vote-input"
-          type="number" 
-          min="1"
-          placeholder="votes"
-        />
-
-        <button 
-          class="button vote-btn"
-          ${disabled ? "disabled" : ""}
-          onclick="vote('${p.id}', ${i})"
-        >
-          ${disabled ? "no votes" : "vote"}
-        </button>
-
-      </div>
-    </div>
-  `
-})
+      `
+    })
 
   }catch(err){
     console.error("loadProjects error", err)
   }
+}
 }
 
 // ========================
@@ -744,6 +746,20 @@ function setWallet(w){
 function shortenWallet(w){
   if(!w) return ""
   return w.slice(0,4) + "..." + w.slice(-4)
+}
+
+function formatDate(dateStr){
+  if(!dateStr) return "unknown"
+
+  const d = new Date(dateStr)
+
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  })
 }
 
 // ========================

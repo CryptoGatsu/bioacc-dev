@@ -83,6 +83,29 @@ export default async function handler(req, res){
       }
 
       // ========================
+// 🚫 RATE LIMIT: 1 PROJECT / DAY
+// ========================
+const DAY = 24 * 60 * 60 * 1000
+const now = Date.now()
+
+const { data: existing } = await supabase
+  .from("projects")
+  .select("created_at")
+  .eq("wallet", wallet)
+  .order("created_at", { ascending: false })
+  .limit(1)
+
+if(existing && existing.length > 0){
+  const last = new Date(existing[0].created_at).getTime()
+
+  if(now - last < DAY){
+    return res.status(400).json({
+      error: "you can only submit 1 project every 24 hours"
+    })
+  }
+}
+
+      // ========================
 // SAVE TO SUPABASE (FIXED)
 // ========================
 const r = await fetch(`${SUPABASE_URL}/rest/v1/projects`,{
