@@ -709,6 +709,24 @@ async function loadResearch(){
   }
 }
 
+function refreshFeed(){
+  const btn = document.getElementById("refreshFeed")
+
+  if(btn){
+    btn.disabled = true
+    btn.innerText = "refreshing..."
+  }
+
+  loadProjects()
+
+  setTimeout(()=>{
+    if(btn){
+      btn.disabled = false
+      btn.innerText = "refresh feed"
+    }
+  }, 800)
+}
+
 
 // ========================
 // 🚀 INIT
