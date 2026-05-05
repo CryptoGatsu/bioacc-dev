@@ -329,7 +329,8 @@ float:right;
 <input type="checkbox" id="confirm" hidden>
 </div>
 
-<button class="button" onclick="submitProject()">submit</button>
+<button id="submitBtn" class="button" onclick="submitProject()">submit</button>
+<div id="submitInfo" style="font-size:12px;color:#777;margin-top:6px;"></div>
 <div id="status"></div>
 
 </div>
@@ -758,6 +759,74 @@ function formatDate(dateStr){
     hour: "numeric",
     minute: "2-digit"
   })
+}
+
+// ========================
+// SUBMISSION LIMIT CHECK
+// ========================
+async function checkSubmissionLimit(wallet){
+
+  if(!wallet) return
+
+  try{
+    const res = await fetch("/api/projects")
+
+    if(!res.ok) return
+
+    const projects = await res.json()
+
+    if(!Array.isArray(projects)) return
+
+    // find user's projects
+    const userProjects = projects.filter(p => p.wallet === wallet)
+
+    if(userProjects.length === 0) return
+
+    // get latest project
+    const latest = userProjects.sort((a,b)=> 
+      new Date(b.created_at) - new Date(a.created_at)
+    )[0]
+
+    const lastTime = new Date(latest.created_at).getTime()
+    const now = Date.now()
+
+    const diff = now - lastTime
+    const hours24 = 24 * 60 * 60 * 1000
+
+    const button = document.getElementById("submitBtn")
+    const info = document.getElementById("submitInfo")
+
+    if(diff < hours24){
+
+      const remaining = hours24 - diff
+
+      const hours = Math.floor(remaining / (1000 * 60 * 60))
+      const mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60))
+
+      if(button){
+        button.disabled = true
+        button.style.opacity = 0.5
+        button.style.cursor = "not-allowed"
+      }
+
+      if(info){
+        info.innerText = `one project per 24h (${hours}h ${mins}m remaining)`
+      }
+
+    } else {
+      if(button){
+        button.disabled = false
+        button.style.opacity = 1
+      }
+
+      if(info){
+        info.innerText = "you can submit a project"
+      }
+    }
+
+  }catch(err){
+    console.log("submission check failed", err)
+  }
 }
 
 // ========================
