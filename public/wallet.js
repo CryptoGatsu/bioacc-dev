@@ -146,6 +146,8 @@ window.connectWallet = async function(){
     // 🔥 LOAD STATS AFTER UI EXISTS
     await loadStats(wallet)
 
+    checkSubmissionLimit(window.wallet)
+
     // 🔥 HIDE CONNECT BUTTONS
     document.querySelectorAll(".connect-btn").forEach(btn=>{
       btn.style.display = "none"

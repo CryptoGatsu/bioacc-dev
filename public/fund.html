@@ -487,6 +487,21 @@ async function loadProjects(){
 // ========================
 async function submitProject(){
 
+  // 🚫 HARD BLOCK (prevents server crash no matter what)
+if(window.lastSubmitTime){
+  const now = Date.now()
+  const diff = now - window.lastSubmitTime
+  const limit = 24 * 60 * 60 * 1000
+
+  if(diff < limit){
+    const remaining = limit - diff
+    const hours = Math.floor(remaining / (1000 * 60 * 60))
+    const mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60))
+
+    return alert(`wait ${hours}h ${mins}m before submitting again`)
+  }
+}
+
   if(!window.wallet) return alert("connect wallet")
 
   const statusEl = document.getElementById("status")
@@ -770,47 +785,47 @@ async function checkSubmissionLimit(wallet){
 
   try{
     const res = await fetch("/api/projects")
-
     if(!res.ok) return
 
     const projects = await res.json()
-
     if(!Array.isArray(projects)) return
 
-    // find user's projects
     const userProjects = projects.filter(p => p.wallet === wallet)
 
-    if(userProjects.length === 0) return
+    if(userProjects.length === 0){
+      window.lastSubmitTime = null
+      return
+    }
 
-    // get latest project
-    const latest = userProjects.sort((a,b)=> 
+    const latest = userProjects.sort((a,b)=>
       new Date(b.created_at) - new Date(a.created_at)
     )[0]
 
     const lastTime = new Date(latest.created_at).getTime()
-    const now = Date.now()
 
+    // ✅ STORE THIS (CRITICAL)
+    window.lastSubmitTime = lastTime
+
+    const now = Date.now()
     const diff = now - lastTime
-    const hours24 = 24 * 60 * 60 * 1000
+    const limit = 24 * 60 * 60 * 1000
 
     const button = document.getElementById("submitBtn")
     const info = document.getElementById("submitInfo")
 
-    if(diff < hours24){
-
-      const remaining = hours24 - diff
-
-      const hours = Math.floor(remaining / (1000 * 60 * 60))
-      const mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60))
+    if(diff < limit){
 
       if(button){
         button.disabled = true
         button.style.opacity = 0.5
-        button.style.cursor = "not-allowed"
       }
 
+      const remaining = limit - diff
+      const hours = Math.floor(remaining / (1000 * 60 * 60))
+      const mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60))
+
       if(info){
-        info.innerText = `one project per 24h (${hours}h ${mins}m remaining)`
+        info.innerText = `one project per 24h (${hours}h ${mins}m)`
       }
 
     } else {
@@ -820,14 +835,20 @@ async function checkSubmissionLimit(wallet){
       }
 
       if(info){
-        info.innerText = "you can submit a project"
+        info.innerText = "ready to submit"
       }
     }
 
   }catch(err){
-    console.log("submission check failed", err)
+    console.log("limit check failed", err)
   }
 }
+
+setInterval(()=>{
+  if(window.wallet){
+    checkSubmissionLimit(window.wallet)
+  }
+}, 5000)
 
 // ========================
 // INIT
